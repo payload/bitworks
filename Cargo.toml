@@ -1,0 +1,9 @@
+[package]
+name = "bitworks"
+version = "0.1.0"
+authors = ["Gilbert Rohrbein <gilbert.rohrbein@logmein.com>"]
+edition = "2018"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
