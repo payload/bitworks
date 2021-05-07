@@ -38,7 +38,7 @@ fn setup(mut cmds: Commands) {
             '=' => {}
             'o' => {}
             'x' => {
-                cutter4_building(&mut cmds);
+                paintcutter_building(&mut cmds);
             }
             _ => (),
         }

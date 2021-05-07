@@ -3,6 +3,13 @@ use bevy::prelude::*;
 use crate::buildings::*;
 use crate::components::*;
 
+#[allow(dead_code)]
+pub enum ProcessorLabel {
+    None,
+    Paintcutter,
+    Mixer,
+}
+
 impl ItemProcessor {
     pub fn process(
         &mut self,
@@ -12,7 +19,7 @@ impl ItemProcessor {
         wiring: Mut<Wiring>,
     ) -> Option<()> {
         match self.label {
-            ProcessorLabel::Cutter4 => cutter4_process(me, self, acceptor, ejector, wiring),
+            ProcessorLabel::Paintcutter => paintcutter_process(me, self, acceptor, ejector, wiring),
             ProcessorLabel::Mixer => None,
             ProcessorLabel::None => None,
         }
@@ -29,13 +36,6 @@ impl ItemProcessor {
         self.label = label;
         self
     }
-}
-
-#[allow(dead_code)]
-pub enum ProcessorLabel {
-    None,
-    Cutter4,
-    Mixer,
 }
 
 impl Default for ProcessorLabel {

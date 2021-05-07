@@ -4,10 +4,10 @@ use crate::components::*;
 use crate::core::*;
 use crate::tools::*;
 
-pub fn cutter4_building(cmds: &mut Commands) {
+pub fn paintcutter_building(cmds: &mut Commands) {
     use Dir::*;
     let mut processor = ItemProcessor::default();
-    processor.label(ProcessorLabel::Cutter4);
+    processor.label(ProcessorLabel::Paintcutter);
     let mut acceptor = ItemAcceptor::default();
     acceptor.slot(1).pos(0, 0).dir(S);
     acceptor.slot(2).pos(1, 0).dir(S);
@@ -23,7 +23,7 @@ pub fn cutter4_building(cmds: &mut Commands) {
     cmds.spawn_bundle(("cutter4".to_string(), processor, acceptor, ejector, wiring));
 }
 
-pub fn cutter4_process(
+pub fn paintcutter_process(
     _me: Entity,
     _processor: &mut ItemProcessor,
     mut acceptor: Mut<ItemAcceptor>,
