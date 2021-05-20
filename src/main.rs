@@ -40,6 +40,7 @@ fn main() {
         //.add_system(item_ejector_system.system())
         //.add_system(item_processor_system.system())
         .add_system(map_cache_system.system())
+        .add_system(process_buildings_system.system())
         .add_startup_system_to_stage(StartupStage::PostStartup, map_cache_system.system())
         .add_startup_system(setup.exclusive_system());
     app.run();
@@ -144,16 +145,61 @@ impl WorldExt for World {
 
 #[allow(dead_code)]
 #[derive(Clone)]
-enum Item {
+enum Color {
+    Gray,
     Red,
     Green,
     Blue,
+}
+
+#[allow(dead_code)]
+#[derive(Clone)]
+enum Shape {
     Circle,
     Rectangle,
     Star,
     Windmill,
 }
-default_enum!(Item::Red);
+
+#[allow(dead_code)]
+#[derive(Clone)]
+struct Piece(Color, Shape);
+
+#[allow(dead_code)]
+#[derive(Clone)]
+enum Item {
+    Color(Color),
+    Shape(Piece, Piece, Piece, Piece),
+}
+
+impl Item {
+    fn paint(self, other: Item) -> Option<Item> {
+        use Item::*;
+
+        match (self, other) {
+            (Color(color), Shape(p1, p2, p3, p4)) | (Shape(p1, p2, p3, p4), Color(color)) => {
+                Some(Shape(
+                    Piece(color.clone(), p1.1),
+                    Piece(color.clone(), p2.1),
+                    Piece(color.clone(), p3.1),
+                    Piece(color, p4.1),
+                ))
+            }
+            (Color(_), Color(_)) => None,
+            (Shape(_, _, _, _), Shape(_, _, _, _)) => None,
+        }
+    }
+
+    fn can_paint(&self, other: &Item) -> bool {
+        use Item::*;
+
+        match (self, other) {
+            (Color(_), Shape(_, _, _, _)) | (Shape(_, _, _, _), Color(_)) => true,
+            (Color(_), Color(_)) => false,
+            (Shape(_, _, _, _), Shape(_, _, _, _)) => false,
+        }
+    }
+}
 
 /////////////////////////////////////////////////////////////////////
 
@@ -164,6 +210,61 @@ struct BuildingState {
 
     input_items: Vec<Item>,
     output_items: Vec<Item>,
+}
+
+/////////////////////////////////////////////////////////////////////
+
+fn process_buildings_system(mut building: Query<(Entity, &Pos, &mut BuildingState)>, map: Res<MapCache>) {
+    for (_, _, mut my) in building.iter_mut() {
+        match my.tag {
+            BuildingTag::None => {}
+            BuildingTag::Condenser => {
+                my.output_items.push(Item::Shape(
+                    Piece(Color::Gray, Shape::Circle),
+                    Piece(Color::Gray, Shape::Circle),
+                    Piece(Color::Gray, Shape::Circle),
+                    Piece(Color::Gray, Shape::Circle),
+                ));
+            }
+            BuildingTag::Belt => {
+                for item in my.input_items.pop() {
+                    my.output_items.push(item);
+                }
+            }
+            BuildingTag::Paintcutter => {
+                if my.input_items.len() >= 2 {
+                    let color = my.input_items.pop().unwrap();
+                    let shape = my.input_items.pop().unwrap();
+                    if color.can_paint(&shape) {
+                        // TODO dont cut yet
+                        my.output_items.push(color.paint(shape).unwrap());
+                    } else {
+                        my.input_items.push(color);
+                        my.input_items.push(shape);
+                    }
+                }
+            }
+            BuildingTag::Incinerator => {
+                my.input_items.clear();
+            }
+        }
+    }
+
+    let mut output = Vec::new();
+
+    for (me, pos, mut my) in building.iter_mut() {
+        if let Some(you) = map._at(pos) {
+            if you != me {
+                output.push((you, my.output_items.drain(0..).collect::<Vec<_>>()));
+            }
+        }
+    }
+
+    for (you, input) in output {
+        if let Ok((_, _, mut your)) = building.get_mut(you) {
+            your.input_items.extend(input);
+        }
+    }
 }
 
 /////////////////////////////////////////////////////////////////////

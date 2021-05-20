@@ -8,6 +8,12 @@ pub struct MapCache {
     entity_cache: HashMap<Entity, Pos>,
 }
 
+impl MapCache {
+    pub fn _at(&self, pos: &Pos) -> Option<Entity> {
+        self.pos_cache.get(pos).map(|x| *x)
+    }
+}
+
 pub fn map_cache_system(
     mut map: ResMut<MapCache>,
     pos: Query<(Entity, &Pos, &String), Added<Pos>>,

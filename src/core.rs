@@ -1,11 +1,3 @@
-#[allow(dead_code)]
-pub enum Piece {
-    TR,
-    BR,
-    BL,
-    TL,
-}
-
 #[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct Pos(pub usize, pub usize);
 
