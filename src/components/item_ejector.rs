@@ -9,10 +9,10 @@ pub struct ItemEjector {
 
 #[derive(Default)]
 pub struct ItemEjectorSlot {
-    items: Vec<Item>,
-    max_items: usize,
-    pos: Pos,
-    dir: Dir,
+    pub items: Vec<Item>,
+    pub max_items: usize,
+    pub pos: Pos,
+    pub dir: Dir,
 }
 
 impl ItemEjector {
@@ -21,8 +21,8 @@ impl ItemEjector {
         self.slots.get_mut(&slot).unwrap()
     }
 
-    pub fn slots(&self) -> impl Iterator<Item = &ItemEjectorSlot> {
-        [].iter()
+    pub fn slots(&self) -> impl Iterator<Item = (&usize, &ItemEjectorSlot)> {
+        self.slots.iter()
     }
 
     pub fn eject(&mut self, slot: usize, item: Item) {}
@@ -30,7 +30,7 @@ impl ItemEjector {
 
 impl ItemEjectorSlot {
     pub fn pos(&mut self, x: usize, y: usize) -> &mut Self {
-        self.pos = (x, y);
+        self.pos = Pos(x, y);
         self
     }
 
@@ -39,7 +39,23 @@ impl ItemEjectorSlot {
         self
     }
 
+    pub fn get_pos(&self) -> &Pos {
+        &self.pos
+    }
+
+    pub fn get_dir(&self) -> Dir {
+        self.dir
+    }
+
     pub fn is_free(&self) -> bool {
         self.items.len() < self.max_items
+    }
+
+    pub fn has_item(&self) -> bool {
+        !self.items.is_empty()
+    }
+
+    pub fn item(&self) -> Option<&Item> {
+        self.items.get(0)
     }
 }

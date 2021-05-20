@@ -10,25 +10,9 @@ pub enum ProcessorLabel {
     Mixer,
 }
 
-impl ItemProcessor {
-    pub fn process(
-        &mut self,
-        me: Entity,
-        acceptor: Mut<ItemAcceptor>,
-        ejector: Mut<ItemEjector>,
-        wiring: Mut<Wiring>,
-    ) -> Option<()> {
-        match self.label {
-            ProcessorLabel::Paintcutter => paintcutter_process(me, self, acceptor, ejector, wiring),
-            ProcessorLabel::Mixer => None,
-            ProcessorLabel::None => None,
-        }
-    }
-}
-
 #[derive(Default)]
 pub struct ItemProcessor {
-    label: ProcessorLabel,
+    pub label: ProcessorLabel,
 }
 
 impl ItemProcessor {

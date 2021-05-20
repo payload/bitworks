@@ -51,7 +51,7 @@ impl Pin {
     }
 
     pub fn pos(&mut self, x: usize, y: usize) -> &mut Self {
-        self.pos = (x, y);
+        self.pos = Pos(x, y);
         self
     }
 

@@ -12,13 +12,13 @@ pub fn map_cache_system(
     mut map: ResMut<MapCache>,
     pos: Query<(Entity, &Pos, &String), Added<Pos>>,
 ) {
-    for (e, pos, name) in pos.iter() {
-        map.entity_cache.insert(e, pos.clone());
+    for (e, pos, _name) in pos.iter() {
+        map.entity_cache.insert(e, (*pos).clone());
         map.pos_cache.insert(pos.clone(), e);
     }
 }
 
-pub fn map_cache_gc_system(mut map: ResMut<MapCache>, removed: RemovedComponents<Pos>) {
+pub fn _map_cache_gc_system(mut map: ResMut<MapCache>, removed: RemovedComponents<Pos>) {
     for e in removed.iter() {
         map.entity_cache
             .remove(&e)
