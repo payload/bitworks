@@ -24,11 +24,11 @@ use bevy::input::system::exit_on_esc_system;
 
 /////////////////////////////////////////////////////////////////////
 
-macro_rules! default_enum {
-    ($T:ident::$V:ident) => {
+macro_rules! impl_default {
+    ($T:ident$($V:tt)*) => {
         impl Default for $T {
             fn default() -> Self {
-                Self::$V
+                Self$($V)*
             }
         }
     };
@@ -53,7 +53,7 @@ fn main() {
     app.run();
 }
 
-default_enum!(BuildingTag::None);
+impl_default!(BuildingTag::None);
 
 #[derive(Clone, Debug)]
 enum BuildingTag {
@@ -93,6 +93,11 @@ fn setup(world: &mut World) {
     world
         .spawn()
         .insert_bundle(OrthographicCameraBundle::new_2d());
+
+    // TODO: load png for item
+    // mut materials: ResMut<Assets<ColorMaterial>>,
+    //     let sprite_handle = materials.add(assets.load("branding/icon.png").into());
+    // and spawn an entity with sprite bundle for each item
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -113,6 +118,7 @@ impl WorldExt for World {
                 BuildingState {
                     tag: BuildingTag::Condenser,
                     dir,
+                    cooldown: 1.0,
                     ..Default::default()
                 },
             ))
@@ -131,6 +137,7 @@ impl WorldExt for World {
                 BuildingState {
                     tag: BuildingTag::Belt,
                     dir,
+                    cooldown: 0.5,
                     ..Default::default()
                 },
             ))
@@ -149,6 +156,7 @@ impl WorldExt for World {
                 BuildingState {
                     tag: BuildingTag::Paintcutter,
                     dir,
+                    cooldown: 1.0,
                     ..Default::default()
                 },
             ))
@@ -167,6 +175,8 @@ impl WorldExt for World {
                 BuildingState {
                     tag: BuildingTag::Incinerator,
                     dir,
+                    cooldown: 1.0,
+                    input_slots: vec![InputSlot::default()],
                     ..Default::default()
                 },
             ))
@@ -245,8 +255,53 @@ struct BuildingState {
     tag: BuildingTag,
     dir: Dir,
 
+    input_slots: Vec<InputSlot>,
     input_items: Vec<Item>,
     output_items: Vec<Item>,
+
+    cooldown: f32,
+    cooldown_progress: f32,
+}
+
+#[derive(Clone)]
+struct InputSlot {
+    item: Option<Item>,
+    progress: f32,
+    ips: f32,
+}
+
+impl_default!(InputSlot {
+    item: None,
+    progress: 0.0,
+    ips: 1.0
+});
+
+impl InputSlot {
+    fn progress(&mut self, seconds: f32) {
+        if self.item.is_some() {
+            if self.progress < 1.0 {
+                self.progress += seconds * self.ips;
+            } else {
+                self.progress = 1.0;
+            }
+        } else if self.progress != 0.0 {
+            self.progress = 0.0;
+        }
+    }
+
+    fn take(&mut self) -> Option<Item> {
+        self.progress = 0.0;
+        self.item.take()
+    }
+
+    fn put(&mut self, item: Item) {
+        self.progress = 0.0;
+        self.item = Some(item);
+    }
+
+    fn is_free(&self) -> bool {
+        self.item.is_some()
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -254,43 +309,58 @@ struct BuildingState {
 fn process_buildings_system(
     mut building: Query<(Entity, &Pos, &mut BuildingState)>,
     map: Res<MapCache>,
+    time: Res<Time>,
     keys: Res<Input<KeyCode>>,
 ) {
     if !keys.just_pressed(KeyCode::Space) {
-        return;
+        //return;
     }
 
     for (_, _, mut my) in building.iter_mut() {
-        match my.tag {
-            BuildingTag::None => {}
-            BuildingTag::Condenser => {
-                my.output_items.push(Item::Shape(
-                    Piece(Color::Gray, Shape::Circle),
-                    Piece(Color::Gray, Shape::Circle),
-                    Piece(Color::Gray, Shape::Circle),
-                    Piece(Color::Gray, Shape::Circle),
-                ));
-            }
-            BuildingTag::Belt => {
-                for item in my.input_items.pop() {
-                    my.output_items.push(item);
+        for slot in my.input_slots.iter_mut() {
+            slot.progress(time.delta_seconds());
+        }
+    }
+
+    for (_, _, mut my) in building.iter_mut() {
+        my.cooldown_progress -= time.delta_seconds();
+        let should_process = my.cooldown_progress <= 0.0;
+
+        if should_process {
+            my.cooldown_progress += my.cooldown;
+
+            match my.tag {
+                BuildingTag::None => {}
+                BuildingTag::Condenser => {
+                    my.output_items.push(Item::Shape(
+                        Piece(Color::Gray, Shape::Circle),
+                        Piece(Color::Gray, Shape::Circle),
+                        Piece(Color::Gray, Shape::Circle),
+                        Piece(Color::Gray, Shape::Circle),
+                    ));
                 }
-            }
-            BuildingTag::Paintcutter => {
-                if my.input_items.len() >= 2 {
-                    let color = my.input_items.pop().unwrap();
-                    let shape = my.input_items.pop().unwrap();
-                    if color.can_paint(&shape) {
-                        // TODO dont cut yet
-                        my.output_items.push(color.paint(shape).unwrap());
-                    } else {
-                        my.input_items.push(color);
-                        my.input_items.push(shape);
+                BuildingTag::Belt => {
+                    for item in my.input_items.pop() {
+                        my.output_items.push(item);
                     }
                 }
-            }
-            BuildingTag::Incinerator => {
-                my.input_items.clear();
+                BuildingTag::Paintcutter => {
+                    if my.input_items.len() >= 2 {
+                        let color = my.input_items.pop().unwrap();
+                        let shape = my.input_items.pop().unwrap();
+                        if color.can_paint(&shape) {
+                            // TODO dont cut yet
+                            my.output_items.push(color.paint(shape).unwrap());
+                        } else {
+                            my.input_items.push(color);
+                            my.input_items.push(shape);
+                        }
+                    }
+                }
+                BuildingTag::Incinerator => {
+                    let slot = my.input_slots.get_mut(0).expect("input slot 0");
+                    slot.take();
+                }
             }
         }
     }
@@ -305,22 +375,55 @@ fn process_buildings_system(
         }
     }
 
-    for (you, input) in output {
+    for (you, mut input) in output {
         if let Ok((_, _, mut your)) = building.get_mut(you) {
-            your.input_items.extend(input);
+            if your.input_slots.len() > 1 {
+                let slot = your.input_slots.get_mut(0).expect("just checked");
+                if slot.is_free() {
+                    let item = input.pop().expect("anything must be in output");
+                    slot.put(item);
+                }
+            } else {
+                your.input_items.extend(input);
+            }
         }
     }
 }
 
+fn sync_render_items(building: Query<(&BuildingState, &GlobalTransform)>) {
+    let mut items = Vec::new();
+
+    for (state, transform) in building.iter() {
+        for slot in state.input_slots.iter() {
+            if let Some(item) = &slot.item {
+                let pos = transform.translation;
+                let dir = match state.dir {
+                    Dir::W => Vec3::new(-1.0, 0.0, 0.0),
+                    Dir::E => Vec3::new( 1.0, 0.0, 0.0),
+                    Dir::N => Vec3::new(0.0, 1.0, 0.0),
+                    Dir::S => Vec3::new(0.0, -1.0, 0.0),
+                };
+                let pos = pos + dir * slot.progress * 16.0;
+                items.push((item, pos));
+            }
+        }
+    }
+
+    // TODO: we have now all items and their position
+    // render them somehow
+}
+
+/////////////////////////////////////////////////////////////////////
+
 fn debug_building_output_system(building: Query<&BuildingState>, keys: Res<Input<KeyCode>>) {
     if !keys.just_pressed(KeyCode::Space) {
-        return;
+        //return;
     }
 
     for my in building.iter() {
         println!("{:?} {}", &my.tag, my.input_items.len());
     }
-    
+
     println!();
 }
 
@@ -332,5 +435,9 @@ fn sync_pos_with_transform(mut query: Query<(&Pos, &mut Transform), Changed<Pos>
         transform.translation.y = pos.1 as f32 * -32.0;
     }
 }
+
+/////////////////////////////////////////////////////////////////////
+
+
 
 /////////////////////////////////////////////////////////////////////
