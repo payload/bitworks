@@ -1,12 +1,15 @@
 #![feature(pub_macro_rules)]
 
 use bevy::prelude::*;
+use bevy::render::color::Color as BevyColor;
+use bevy_prototype_lyon::prelude::*;
 
 //mod buildings;
 //mod components;
 mod core;
 mod systems;
 // #[macro_use]
+mod lyon_ext;
 mod tools;
 
 use crate::core::*;
@@ -14,6 +17,7 @@ use crate::core::*;
 //use components::*;
 use systems::*;
 //use tools::*;
+use lyon_ext::*;
 
 // special uses
 use bevy::input::system::exit_on_esc_system;
@@ -35,12 +39,14 @@ macro_rules! default_enum {
 fn main() {
     let mut app = App::build();
     app.add_plugins(DefaultPlugins)
+        .add_plugin(ShapePlugin)
         //.add_system(show_metrics_system.system())
         .add_system(exit_on_esc_system.system())
         //.add_system(item_ejector_system.system())
         //.add_system(item_processor_system.system())
         .add_system(map_cache_system.system())
         .add_system(process_buildings_system.system())
+        .add_system(sync_pos_with_transform.system())
         .add_startup_system_to_stage(StartupStage::PostStartup, map_cache_system.system())
         .add_startup_system(setup.exclusive_system());
     app.run();
@@ -80,6 +86,10 @@ fn setup(world: &mut World) {
     }
 
     world.insert_resource(MapCache::default());
+
+    world
+        .spawn()
+        .insert_bundle(OrthographicCameraBundle::new_2d());
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -93,51 +103,75 @@ trait WorldExt {
 
 impl WorldExt for World {
     fn condenser_bundle(&mut self, pos: Pos, dir: Dir) {
-        self.spawn().insert_bundle((
-            "Condenser".to_string(),
-            pos,
-            BuildingState {
-                tag: BuildingTag::Condenser,
-                dir,
-                ..Default::default()
-            },
-        ));
+        self.spawn()
+            .insert_bundle((
+                "Condenser".to_string(),
+                pos,
+                BuildingState {
+                    tag: BuildingTag::Condenser,
+                    dir,
+                    ..Default::default()
+                },
+            ))
+            .insert_bundle(lyon().polygon(6, 16.0).outlined(
+                BevyColor::TEAL,
+                BevyColor::BLACK,
+                4.0,
+            ));
     }
 
     fn belt_bundle(&mut self, pos: Pos, dir: Dir) {
-        self.spawn().insert_bundle((
-            "Belt".to_string(),
-            pos,
-            BuildingState {
-                tag: BuildingTag::Belt,
-                dir,
-                ..Default::default()
-            },
-        ));
+        self.spawn()
+            .insert_bundle((
+                "Belt".to_string(),
+                pos,
+                BuildingState {
+                    tag: BuildingTag::Belt,
+                    dir,
+                    ..Default::default()
+                },
+            ))
+            .insert_bundle(lyon().polygon(4, 16.0).outlined(
+                BevyColor::GRAY,
+                BevyColor::BLACK,
+                4.0,
+            ));
     }
 
     fn paintcutter_bundle(&mut self, pos: Pos, dir: Dir) {
-        self.spawn().insert_bundle((
-            "PAintcutter".to_string(),
-            pos,
-            BuildingState {
-                tag: BuildingTag::Paintcutter,
-                dir,
-                ..Default::default()
-            },
-        ));
+        self.spawn()
+            .insert_bundle((
+                "PAintcutter".to_string(),
+                pos,
+                BuildingState {
+                    tag: BuildingTag::Paintcutter,
+                    dir,
+                    ..Default::default()
+                },
+            ))
+            .insert_bundle(lyon().rectangle(32.0, 32.0).outlined(
+                BevyColor::LIME_GREEN,
+                BevyColor::BLACK,
+                4.0,
+            ));
     }
 
     fn incinerator_bundle(&mut self, pos: Pos, dir: Dir) {
-        self.spawn().insert_bundle((
-            "Incinerator".to_string(),
-            pos,
-            BuildingState {
-                tag: BuildingTag::Incinerator,
-                dir,
-                ..Default::default()
-            },
-        ));
+        self.spawn()
+            .insert_bundle((
+                "Incinerator".to_string(),
+                pos,
+                BuildingState {
+                    tag: BuildingTag::Incinerator,
+                    dir,
+                    ..Default::default()
+                },
+            ))
+            .insert_bundle(
+                lyon()
+                    .circle(16.0)
+                    .outlined(BevyColor::RED, BevyColor::BLACK, 4.0),
+            );
     }
 }
 
@@ -214,7 +248,10 @@ struct BuildingState {
 
 /////////////////////////////////////////////////////////////////////
 
-fn process_buildings_system(mut building: Query<(Entity, &Pos, &mut BuildingState)>, map: Res<MapCache>) {
+fn process_buildings_system(
+    mut building: Query<(Entity, &Pos, &mut BuildingState)>,
+    map: Res<MapCache>,
+) {
     for (_, _, mut my) in building.iter_mut() {
         match my.tag {
             BuildingTag::None => {}
@@ -264,6 +301,15 @@ fn process_buildings_system(mut building: Query<(Entity, &Pos, &mut BuildingStat
         if let Ok((_, _, mut your)) = building.get_mut(you) {
             your.input_items.extend(input);
         }
+    }
+}
+
+/////////////////////////////////////////////////////////////////////
+
+fn sync_pos_with_transform(mut query: Query<(&Pos, &mut Transform), Changed<Pos>>) {
+    for (pos, mut transform) in query.iter_mut() {
+        transform.translation.x = pos.0 as f32 * 32.0;
+        transform.translation.y = pos.1 as f32 * -32.0;
     }
 }
 
