@@ -47,6 +47,7 @@ fn main() {
         .add_system(map_cache_system.system())
         .add_system(process_buildings_system.system())
         .add_system(sync_pos_with_transform.system())
+        .add_system_to_stage(CoreStage::PostUpdate, debug_building_output_system.system())
         .add_startup_system_to_stage(StartupStage::PostStartup, map_cache_system.system())
         .add_startup_system(setup.exclusive_system());
     app.run();
@@ -54,7 +55,7 @@ fn main() {
 
 default_enum!(BuildingTag::None);
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum BuildingTag {
     None,
     Condenser,
@@ -70,8 +71,10 @@ fn setup(world: &mut World) {
     let buildings = [
         (Condenser, (3, 3), E),
         (Belt, (4, 3), E),
-        (Paintcutter, (5, 3), S),
-        (Incinerator, (5, 4), N),
+        (Belt, (5, 3), E),
+        (Belt, (6, 3), E),
+        //(Paintcutter, (5, 3), S),
+        (Incinerator, (7, 3), W),
     ];
 
     for (building, pos, dir) in &buildings {
@@ -141,7 +144,7 @@ impl WorldExt for World {
     fn paintcutter_bundle(&mut self, pos: Pos, dir: Dir) {
         self.spawn()
             .insert_bundle((
-                "PAintcutter".to_string(),
+                "Paintcutter".to_string(),
                 pos,
                 BuildingState {
                     tag: BuildingTag::Paintcutter,
@@ -178,7 +181,7 @@ impl WorldExt for World {
 /////////////////////////////////////////////////////////////////////
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Color {
     Gray,
     Red,
@@ -187,7 +190,7 @@ enum Color {
 }
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Shape {
     Circle,
     Rectangle,
@@ -196,11 +199,11 @@ enum Shape {
 }
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct Piece(Color, Shape);
 
 #[allow(dead_code)]
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 enum Item {
     Color(Color),
     Shape(Piece, Piece, Piece, Piece),
@@ -251,7 +254,12 @@ struct BuildingState {
 fn process_buildings_system(
     mut building: Query<(Entity, &Pos, &mut BuildingState)>,
     map: Res<MapCache>,
+    keys: Res<Input<KeyCode>>,
 ) {
+    if !keys.just_pressed(KeyCode::Space) {
+        return;
+    }
+
     for (_, _, mut my) in building.iter_mut() {
         match my.tag {
             BuildingTag::None => {}
@@ -290,8 +298,8 @@ fn process_buildings_system(
     let mut output = Vec::new();
 
     for (me, pos, mut my) in building.iter_mut() {
-        if let Some(you) = map._at(pos) {
-            if you != me {
+        if let Some(you) = map.at(&my.dir.pos(pos)) {
+            if you != me && my.output_items.len() > 0 {
                 output.push((you, my.output_items.drain(0..).collect::<Vec<_>>()));
             }
         }
@@ -302,6 +310,18 @@ fn process_buildings_system(
             your.input_items.extend(input);
         }
     }
+}
+
+fn debug_building_output_system(building: Query<&BuildingState>, keys: Res<Input<KeyCode>>) {
+    if !keys.just_pressed(KeyCode::Space) {
+        return;
+    }
+
+    for my in building.iter() {
+        println!("{:?} {}", &my.tag, my.input_items.len());
+    }
+    
+    println!();
 }
 
 /////////////////////////////////////////////////////////////////////

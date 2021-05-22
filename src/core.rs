@@ -17,7 +17,7 @@ pub enum Dir {
 }
 
 impl Dir {
-    pub fn _pos(&self, base: &Pos) -> Pos {
+    pub fn pos(&self, base: &Pos) -> Pos {
         let Pos(x, y) = base;
         match *self {
             Dir::W => Pos(x - 1, y + 0),

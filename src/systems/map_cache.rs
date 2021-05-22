@@ -9,7 +9,7 @@ pub struct MapCache {
 }
 
 impl MapCache {
-    pub fn _at(&self, pos: &Pos) -> Option<Entity> {
+    pub fn at(&self, pos: &Pos) -> Option<Entity> {
         self.pos_cache.get(pos).map(|x| *x)
     }
 }
