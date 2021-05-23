@@ -482,6 +482,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_prototype_debug_lines"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "38dd1765929d2ea3be5f6140ef028ef1487a5450eedb1b790ca1182772bc1f63"
+dependencies = [
+ "bevy",
+]
+
+[[package]]
 name = "bevy_prototype_lyon"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -786,6 +795,7 @@ name = "bitworks"
 version = "0.1.0"
 dependencies = [
  "bevy",
+ "bevy_prototype_debug_lines",
  "bevy_prototype_lyon",
  "lazy_static",
  "prometheus",

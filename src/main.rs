@@ -2,6 +2,7 @@
 
 use bevy::prelude::*;
 use bevy::render::color::Color as BevyColor;
+use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 use bevy_prototype_lyon::prelude::*;
 
 //mod buildings;
@@ -40,13 +41,21 @@ fn main() {
     let mut app = App::build();
     app.add_plugins(DefaultPlugins)
         .add_plugin(ShapePlugin)
+        .add_plugin(DebugLinesPlugin)
+        //
         //.add_system(show_metrics_system.system())
         .add_system(exit_on_esc_system.system())
         //.add_system(item_ejector_system.system())
         //.add_system(item_processor_system.system())
         .add_system(map_cache_system.system())
-        .add_system(process_buildings_system.system())
-        .add_system(sync_pos_with_transform.system())
+        .add_system(process_buildings_system.system().label("process"))
+        .add_system(
+            sync_pos_with_transform
+                .system()
+                .label("sync_pos")
+                .after("process"),
+        )
+        .add_system(debug_render_items.system().after("sync_pos"))
         .add_system_to_stage(CoreStage::PostUpdate, debug_building_output_system.system())
         .add_startup_system_to_stage(StartupStage::PostStartup, map_cache_system.system())
         .add_startup_system(setup.exclusive_system());
@@ -74,7 +83,7 @@ fn setup(world: &mut World) {
         (Belt, (5, 3), E),
         (Belt, (6, 3), E),
         //(Paintcutter, (5, 3), S),
-        (Incinerator, (7, 3), W),
+        (Incinerator, (7, 3), E),
     ];
 
     for (building, pos, dir) in &buildings {
@@ -90,9 +99,9 @@ fn setup(world: &mut World) {
 
     world.insert_resource(MapCache::default());
 
-    world
-        .spawn()
-        .insert_bundle(OrthographicCameraBundle::new_2d());
+    let mut camera = OrthographicCameraBundle::new_2d();
+    camera.transform.translation.z = 5.0;
+    world.spawn().insert_bundle(camera);
 
     // TODO: load png for item
     // mut materials: ResMut<Assets<ColorMaterial>>,
@@ -300,7 +309,7 @@ impl InputSlot {
     }
 
     fn is_free(&self) -> bool {
-        self.item.is_some()
+        self.item.is_none()
     }
 }
 
@@ -377,40 +386,69 @@ fn process_buildings_system(
 
     for (you, mut input) in output {
         if let Ok((_, _, mut your)) = building.get_mut(you) {
-            if your.input_slots.len() > 1 {
+            print!("o");
+            if !your.input_slots.is_empty() {
+                print!("s");
                 let slot = your.input_slots.get_mut(0).expect("just checked");
                 if slot.is_free() {
+                    print!("p");
                     let item = input.pop().expect("anything must be in output");
                     slot.put(item);
                 }
             } else {
+                print!("x");
                 your.input_items.extend(input);
             }
         }
     }
 }
 
-fn sync_render_items(building: Query<(&BuildingState, &GlobalTransform)>) {
+/////////////////////////////////////////////////////////////////////
+
+fn debug_render_items(
+    building: Query<(&BuildingState, &GlobalTransform)>,
+    mut lines: ResMut<DebugLines>,
+) {
     let mut items = Vec::new();
 
     for (state, transform) in building.iter() {
+        print!(".");
         for slot in state.input_slots.iter() {
+            print!("s");
             if let Some(item) = &slot.item {
+                print!("i");
                 let pos = transform.translation;
                 let dir = match state.dir {
                     Dir::W => Vec3::new(-1.0, 0.0, 0.0),
-                    Dir::E => Vec3::new( 1.0, 0.0, 0.0),
+                    Dir::E => Vec3::new(1.0, 0.0, 0.0),
                     Dir::N => Vec3::new(0.0, 1.0, 0.0),
                     Dir::S => Vec3::new(0.0, -1.0, 0.0),
                 };
-                let pos = pos + dir * slot.progress * 16.0;
-                items.push((item, pos));
+                let pos = pos + dir * -16.0 + dir * slot.progress * 16.0;
+                items.push((item, pos, dir));
             }
         }
     }
 
-    // TODO: we have now all items and their position
-    // render them somehow
+    lines.line_gradient(
+        Vec3::ZERO,
+        Vec3::new(200.0, -200.0, 0.0),
+        0.0,
+        BevyColor::BLACK,
+        BevyColor::WHITE,
+    );
+
+    for (_item, pos, dir) in items {
+        let up = if dir.x != 0.0 {
+            Vec3::new(0.0, dir.x, 0.0)
+        } else {
+            Vec3::new(dir.y, 0.0, 0.0)
+        } * 4.0;
+        let forward = dir * 4.0;
+        let down = -up;
+        lines.line(pos + up, pos + forward, 0.0);
+        lines.line(pos + down, pos + forward, 0.0);
+    }
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -437,7 +475,5 @@ fn sync_pos_with_transform(mut query: Query<(&Pos, &mut Transform), Changed<Pos>
 }
 
 /////////////////////////////////////////////////////////////////////
-
-
 
 /////////////////////////////////////////////////////////////////////
