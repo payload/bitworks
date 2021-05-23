@@ -50,10 +50,16 @@ fn main() {
         .add_system(map_cache_system.system())
         .add_system(process_buildings_system.system().label("process"))
         .add_system(
+            items_in_out_system
+                .system()
+                .after("process")
+                .label("transfer"),
+        )
+        .add_system(
             sync_pos_with_transform
                 .system()
                 .label("sync_pos")
-                .after("process"),
+                .after("transfer"),
         )
         .add_system(debug_render_items.system().after("sync_pos"))
         .add_system_to_stage(CoreStage::PostUpdate, debug_building_output_system.system())
@@ -100,7 +106,10 @@ fn setup(world: &mut World) {
     world.insert_resource(MapCache::default());
 
     let mut camera = OrthographicCameraBundle::new_2d();
+    camera.transform.translation.x = 32.0 * 4.0;
+    camera.transform.translation.y = 32.0 * -3.0;
     camera.transform.translation.z = 5.0;
+    camera.orthographic_projection.scale = 0.25;
     world.spawn().insert_bundle(camera);
 
     // TODO: load png for item
@@ -127,7 +136,8 @@ impl WorldExt for World {
                 BuildingState {
                     tag: BuildingTag::Condenser,
                     dir,
-                    cooldown: 1.0,
+                    cooldown: 0.0,
+                    output_slots: vec![ItemSlot::default()],
                     ..Default::default()
                 },
             ))
@@ -146,7 +156,9 @@ impl WorldExt for World {
                 BuildingState {
                     tag: BuildingTag::Belt,
                     dir,
-                    cooldown: 0.5,
+                    cooldown: 0.0,
+                    input_slots: vec![ItemSlot::default()],
+                    output_slots: vec![ItemSlot::default()],
                     ..Default::default()
                 },
             ))
@@ -185,7 +197,7 @@ impl WorldExt for World {
                     tag: BuildingTag::Incinerator,
                     dir,
                     cooldown: 1.0,
-                    input_slots: vec![InputSlot::default()],
+                    input_slots: vec![ItemSlot::default()],
                     ..Default::default()
                 },
             ))
@@ -264,7 +276,8 @@ struct BuildingState {
     tag: BuildingTag,
     dir: Dir,
 
-    input_slots: Vec<InputSlot>,
+    input_slots: Vec<ItemSlot>,
+    output_slots: Vec<ItemSlot>,
     input_items: Vec<Item>,
     output_items: Vec<Item>,
 
@@ -273,19 +286,19 @@ struct BuildingState {
 }
 
 #[derive(Clone)]
-struct InputSlot {
+struct ItemSlot {
     item: Option<Item>,
     progress: f32,
     ips: f32,
 }
 
-impl_default!(InputSlot {
+impl_default!(ItemSlot {
     item: None,
     progress: 0.0,
     ips: 1.0
 });
 
-impl InputSlot {
+impl ItemSlot {
     fn progress(&mut self, seconds: f32) {
         if self.item.is_some() {
             if self.progress < 1.0 {
@@ -298,9 +311,10 @@ impl InputSlot {
         }
     }
 
-    fn take(&mut self) -> Option<Item> {
+    fn take(&mut self) -> Option<(Item, f32)> {
+        let overshoot = self.progress - 1.0;
         self.progress = 0.0;
-        self.item.take()
+        self.item.take().map(|item| (item, overshoot))
     }
 
     fn put(&mut self, item: Item) {
@@ -308,8 +322,17 @@ impl InputSlot {
         self.item = Some(item);
     }
 
+    fn put_progress(&mut self, item: Item, progress: f32) {
+        self.progress = progress;
+        self.item = Some(item);
+    }
+
     fn is_free(&self) -> bool {
         self.item.is_none()
+    }
+
+    fn is_done(&self) -> bool {
+        self.item.is_some() && self.progress >= 1.0
     }
 }
 
@@ -317,16 +340,14 @@ impl InputSlot {
 
 fn process_buildings_system(
     mut building: Query<(Entity, &Pos, &mut BuildingState)>,
-    map: Res<MapCache>,
     time: Res<Time>,
     keys: Res<Input<KeyCode>>,
 ) {
-    if !keys.just_pressed(KeyCode::Space) {
-        //return;
-    }
-
     for (_, _, mut my) in building.iter_mut() {
         for slot in my.input_slots.iter_mut() {
+            slot.progress(time.delta_seconds());
+        }
+        for slot in my.output_slots.iter_mut() {
             slot.progress(time.delta_seconds());
         }
     }
@@ -341,16 +362,27 @@ fn process_buildings_system(
             match my.tag {
                 BuildingTag::None => {}
                 BuildingTag::Condenser => {
-                    my.output_items.push(Item::Shape(
-                        Piece(Color::Gray, Shape::Circle),
-                        Piece(Color::Gray, Shape::Circle),
-                        Piece(Color::Gray, Shape::Circle),
-                        Piece(Color::Gray, Shape::Circle),
-                    ));
+                    let slot = my.output_slots.get_mut(0).expect("out slot 0");
+                    if slot.is_free() {
+                        slot.put(Item::Shape(
+                            Piece(Color::Gray, Shape::Circle),
+                            Piece(Color::Gray, Shape::Circle),
+                            Piece(Color::Gray, Shape::Circle),
+                            Piece(Color::Gray, Shape::Circle),
+                        ));
+                    }
                 }
                 BuildingTag::Belt => {
-                    for item in my.input_items.pop() {
-                        my.output_items.push(item);
+                    let in_slot = my.input_slots.get(0).expect("in slot 0");
+                    let out_slot = my.output_slots.get(0).expect("out slot 0");
+
+                    println!("b {} {}", in_slot.is_done(), out_slot.is_free());
+                    if in_slot.is_done() && out_slot.is_free() {
+                        let in_slot = my.input_slots.get_mut(0).expect("in slot 0");
+                        let (item, overshoot) = in_slot.take().expect("just checked");
+
+                        let out_slot = my.output_slots.get_mut(0).expect("out slot 0");
+                        out_slot.put_progress(item, overshoot);
                     }
                 }
                 BuildingTag::Paintcutter => {
@@ -373,33 +405,51 @@ fn process_buildings_system(
             }
         }
     }
+}
 
-    let mut output = Vec::new();
+fn items_in_out_system(
+    mut queries: QuerySet<(
+        Query<(Entity, &BuildingState, &Pos)>,
+        Query<&mut BuildingState>,
+    )>,
+    map: Res<MapCache>,
+) {
+    let mut transfers = Vec::new();
 
-    for (me, pos, mut my) in building.iter_mut() {
-        if let Some(you) = map.at(&my.dir.pos(pos)) {
-            if you != me && my.output_items.len() > 0 {
-                output.push((you, my.output_items.drain(0..).collect::<Vec<_>>()));
+    for (me, my, pos) in queries.q0().iter() {
+        if my
+            .output_slots
+            .get(0)
+            .map(ItemSlot::is_done)
+            .unwrap_or(false)
+        {
+            if let Some(you) = map.at(&my.dir.pos(pos)) {
+                if you != me {
+                    if let Ok(your) = queries.q0().get_component::<BuildingState>(you) {
+                        if your
+                            .input_slots
+                            .get(0)
+                            .map(ItemSlot::is_free)
+                            .unwrap_or(false)
+                        {
+                            transfers.push((me, you));
+                        }
+                    }
+                }
             }
         }
     }
 
-    for (you, mut input) in output {
-        if let Ok((_, _, mut your)) = building.get_mut(you) {
-            print!("o");
-            if !your.input_slots.is_empty() {
-                print!("s");
-                let slot = your.input_slots.get_mut(0).expect("just checked");
-                if slot.is_free() {
-                    print!("p");
-                    let item = input.pop().expect("anything must be in output");
-                    slot.put(item);
-                }
-            } else {
-                print!("x");
-                your.input_items.extend(input);
-            }
-        }
+    for (me, you) in transfers {
+        let mut my = queries.q1_mut().get_mut(me).expect("just fetched");
+        let out_slot = my.output_slots.get_mut(0).expect("just used");
+        let (item, overshoot) = out_slot.take().expect("just checked");
+
+        let mut your = queries.q1_mut().get_mut(you).expect("just fetched");
+        your.input_slots
+            .get_mut(0)
+            .expect("just used")
+            .put_progress(item, overshoot);
     }
 }
 
@@ -412,11 +462,8 @@ fn debug_render_items(
     let mut items = Vec::new();
 
     for (state, transform) in building.iter() {
-        print!(".");
         for slot in state.input_slots.iter() {
-            print!("s");
             if let Some(item) = &slot.item {
-                print!("i");
                 let pos = transform.translation;
                 let dir = match state.dir {
                     Dir::W => Vec3::new(-1.0, 0.0, 0.0),
@@ -428,15 +475,24 @@ fn debug_render_items(
                 items.push((item, pos, dir));
             }
         }
+
+        for slot in state.output_slots.iter() {
+            if let Some(item) = &slot.item {
+                let pos = transform.translation;
+                let dir = match state.dir {
+                    Dir::W => Vec3::new(-1.0, 0.0, 0.0),
+                    Dir::E => Vec3::new(1.0, 0.0, 0.0),
+                    Dir::N => Vec3::new(0.0, 1.0, 0.0),
+                    Dir::S => Vec3::new(0.0, -1.0, 0.0),
+                };
+                let pos = pos + dir * slot.progress * 16.0;
+                items.push((item, pos, dir));
+            }
+        }
     }
 
-    lines.line_gradient(
-        Vec3::ZERO,
-        Vec3::new(200.0, -200.0, 0.0),
-        0.0,
-        BevyColor::BLACK,
-        BevyColor::WHITE,
-    );
+    let black = BevyColor::BLACK;
+    let white = BevyColor::WHITE;
 
     for (_item, pos, dir) in items {
         let up = if dir.x != 0.0 {
@@ -446,18 +502,14 @@ fn debug_render_items(
         } * 4.0;
         let forward = dir * 4.0;
         let down = -up;
-        lines.line(pos + up, pos + forward, 0.0);
-        lines.line(pos + down, pos + forward, 0.0);
+        lines.line_gradient(pos + up, pos + forward, 0.0, black, white);
+        lines.line_gradient(pos + down, pos + forward, 0.0, black, white);
     }
 }
 
 /////////////////////////////////////////////////////////////////////
 
 fn debug_building_output_system(building: Query<&BuildingState>, keys: Res<Input<KeyCode>>) {
-    if !keys.just_pressed(KeyCode::Space) {
-        //return;
-    }
-
     for my in building.iter() {
         println!("{:?} {}", &my.tag, my.input_items.len());
     }
