@@ -278,8 +278,6 @@ struct BuildingState {
 
     input_slots: Vec<ItemSlot>,
     output_slots: Vec<ItemSlot>,
-    input_items: Vec<Item>,
-    output_items: Vec<Item>,
 
     cooldown: f32,
     cooldown_progress: f32,
@@ -309,6 +307,10 @@ impl ItemSlot {
         } else if self.progress != 0.0 {
             self.progress = 0.0;
         }
+    }
+
+    fn peek(&self) -> Option<&Item> {
+        self.item.as_ref()
     }
 
     fn take(&mut self) -> Option<(Item, f32)> {
@@ -341,7 +343,6 @@ impl ItemSlot {
 fn process_buildings_system(
     mut building: Query<(Entity, &Pos, &mut BuildingState)>,
     time: Res<Time>,
-    keys: Res<Input<KeyCode>>,
 ) {
     for (_, _, mut my) in building.iter_mut() {
         for slot in my.input_slots.iter_mut() {
@@ -376,7 +377,6 @@ fn process_buildings_system(
                     let in_slot = my.input_slots.get(0).expect("in slot 0");
                     let out_slot = my.output_slots.get(0).expect("out slot 0");
 
-                    println!("b {} {}", in_slot.is_done(), out_slot.is_free());
                     if in_slot.is_done() && out_slot.is_free() {
                         let in_slot = my.input_slots.get_mut(0).expect("in slot 0");
                         let (item, overshoot) = in_slot.take().expect("just checked");
@@ -386,15 +386,24 @@ fn process_buildings_system(
                     }
                 }
                 BuildingTag::Paintcutter => {
-                    if my.input_items.len() >= 2 {
-                        let color = my.input_items.pop().unwrap();
-                        let shape = my.input_items.pop().unwrap();
-                        if color.can_paint(&shape) {
-                            // TODO dont cut yet
-                            my.output_items.push(color.paint(shape).unwrap());
-                        } else {
-                            my.input_items.push(color);
-                            my.input_items.push(shape);
+                    let slot0 = my.input_slots.get(0).expect("in slot 0");
+                    let slot1 = my.input_slots.get(1).expect("in slot 1");
+                    let out = my.output_slots.get(0).expect("out slot 0");
+
+                    if slot0.is_done() && slot1.is_done() && out.is_free() {
+                        let color = slot0.peek().expect("just checked");
+                        let shape = slot0.peek().expect("just checked");
+
+                        if color.can_paint(shape) {
+                            let slot0 = my.input_slots.get_mut(0).expect("in slot 0");
+                            let (color, _) = slot0.take().expect("just checked");
+
+                            let slot1 = my.input_slots.get_mut(1).expect("in slot 0");
+                            let (shape, _) = slot1.take().expect("just checked");
+
+                            let item = color.paint(shape).expect("just checked");
+                            let out = my.output_slots.get_mut(0).expect("out slot 0");
+                            out.put(item);
                         }
                     }
                 }
@@ -509,9 +518,25 @@ fn debug_render_items(
 
 /////////////////////////////////////////////////////////////////////
 
-fn debug_building_output_system(building: Query<&BuildingState>, keys: Res<Input<KeyCode>>) {
+fn debug_building_output_system(building: Query<&BuildingState>) {
     for my in building.iter() {
-        println!("{:?} {}", &my.tag, my.input_items.len());
+        let in_items = my
+            .input_slots
+            .iter()
+            .map(|slot| slot.peek().map_or(".", |_| "o"))
+            .collect::<Vec<_>>()
+            .join("");
+        let out_items = my
+            .output_slots
+            .iter()
+            .map(|slot| slot.peek().map_or(".", |_| "o"))
+            .collect::<Vec<_>>()
+            .join("");
+        let processing_items = "";
+        println!(
+            "{:?} {} > {} > {}",
+            &my.tag, in_items, processing_items, out_items
+        );
     }
 
     println!();
