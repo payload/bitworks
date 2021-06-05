@@ -1,3 +1,5 @@
+use bevy::math::Vec3;
+
 #[derive(Default, Clone, PartialEq, Eq, Hash)]
 pub struct Pos(pub usize, pub usize);
 
@@ -33,6 +35,15 @@ impl Dir {
             Dir::E => Dir::W,
             Dir::N => Dir::S,
             Dir::S => Dir::N,
+        }
+    }
+
+    pub fn vec(&self) -> Vec3 {
+        match self {
+            Dir::W => Vec3::new(-1.0, 0.0, 0.0),
+            Dir::E => Vec3::new(1.0, 0.0, 0.0),
+            Dir::N => Vec3::new(0.0, 1.0, 0.0),
+            Dir::S => Vec3::new(0.0, -1.0, 0.0),
         }
     }
 }

@@ -1,4 +1,5 @@
 #![feature(pub_macro_rules)]
+#![feature(total_cmp)]
 
 use bevy::prelude::*;
 use bevy::render::color::Color as BevyColor;
@@ -37,6 +38,12 @@ macro_rules! impl_default {
 
 /////////////////////////////////////////////////////////////////////
 
+fn update_time(time: Res<Time>, mut sim_time: ResMut<f32>) {
+    *sim_time = time.delta_seconds();
+}
+
+/////////////////////////////////////////////////////////////////////
+
 fn main() {
     let mut app = App::build();
     app.add_plugins(DefaultPlugins)
@@ -47,6 +54,7 @@ fn main() {
         .add_system(exit_on_esc_system.system())
         //.add_system(item_ejector_system.system())
         //.add_system(item_processor_system.system())
+        .add_system_to_stage(CoreStage::PreUpdate, update_time.system())
         .add_system(map_cache_system.system())
         .add_system(process_buildings_system.system().label("process"))
         .add_system(
@@ -56,12 +64,20 @@ fn main() {
                 .label("transfer"),
         )
         .add_system(
-            sync_pos_with_transform
+            belt_path_advance_items
                 .system()
-                .label("sync_pos")
+                .label("belt_path")
                 .after("transfer"),
         )
+        .add_system(
+            sys_sync_pos_with_transform
+                .system()
+                .label("sync_pos")
+                .after("belt_path"),
+        )
         .add_system(debug_render_items.system().after("sync_pos"))
+        .add_system(debug_belt_path_place_random_items.system())
+        .add_system(debug_belt_path_draw.system())
         .add_system_to_stage(CoreStage::PostUpdate, debug_building_output_system.system())
         .add_startup_system_to_stage(StartupStage::PostStartup, map_cache_system.system())
         .add_startup_system(setup.exclusive_system());
@@ -80,6 +96,22 @@ enum BuildingTag {
 }
 
 fn setup(world: &mut World) {
+    world.insert_resource(0.0f32);
+    world.insert_resource(MapCache::default());
+    world.insert_resource(BeltPath::default());
+
+    let mut camera = OrthographicCameraBundle::new_2d();
+    camera.transform.translation.x = 32.0 * 4.0;
+    camera.transform.translation.y = 32.0 * -3.0;
+    camera.transform.translation.z = 5.0;
+    camera.orthographic_projection.scale = 0.25;
+    world.spawn().insert_bundle(camera);
+
+    // TODO: load png for item
+    // mut materials: ResMut<Assets<ColorMaterial>>,
+    //     let sprite_handle = materials.add(assets.load("branding/icon.png").into());
+    // and spawn an entity with sprite bundle for each item
+
     use BuildingTag::*;
     use Dir::*;
 
@@ -102,20 +134,6 @@ fn setup(world: &mut World) {
             Incinerator => world.incinerator_bundle(pos, *dir),
         }
     }
-
-    world.insert_resource(MapCache::default());
-
-    let mut camera = OrthographicCameraBundle::new_2d();
-    camera.transform.translation.x = 32.0 * 4.0;
-    camera.transform.translation.y = 32.0 * -3.0;
-    camera.transform.translation.z = 5.0;
-    camera.orthographic_projection.scale = 0.25;
-    world.spawn().insert_bundle(camera);
-
-    // TODO: load png for item
-    // mut materials: ResMut<Assets<ColorMaterial>>,
-    //     let sprite_handle = materials.add(assets.load("branding/icon.png").into());
-    // and spawn an entity with sprite bundle for each item
 }
 
 /////////////////////////////////////////////////////////////////////
@@ -149,7 +167,8 @@ impl WorldExt for World {
     }
 
     fn belt_bundle(&mut self, pos: Pos, dir: Dir) {
-        self.spawn()
+        let belt = self
+            .spawn()
             .insert_bundle((
                 "Belt".to_string(),
                 pos,
@@ -161,12 +180,22 @@ impl WorldExt for World {
                     output_slots: vec![ItemSlot::default()],
                     ..Default::default()
                 },
+                BeltState { path: Some(()) },
             ))
-            .insert_bundle(lyon().polygon(4, 16.0).outlined(
-                BevyColor::GRAY,
-                BevyColor::BLACK,
-                4.0,
-            ));
+            .insert_bundle(
+                lyon()
+                    .polygon(4, 16.0)
+                    .outlined(BevyColor::GRAY, BevyColor::BLACK, 4.0),
+            )
+            .id();
+
+        let pos = self.get::<Pos>(belt).unwrap().clone();
+        let mut transform = self.get_mut(belt).unwrap();
+        sync_pos_with_transform(&pos, &mut transform);
+
+        let transform = self.get::<Transform>(belt).unwrap().clone();
+        let mut path = self.get_resource_mut::<BeltPath>().expect("the beltpath");
+        path.add_belt(belt, &transform);
     }
 
     fn paintcutter_bundle(&mut self, pos: Pos, dir: Dir) {
@@ -212,7 +241,7 @@ impl WorldExt for World {
 /////////////////////////////////////////////////////////////////////
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum Color {
     Gray,
     Red,
@@ -221,7 +250,7 @@ enum Color {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum Shape {
     Circle,
     Rectangle,
@@ -230,11 +259,11 @@ enum Shape {
 }
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 struct Piece(Color, Shape);
 
 #[allow(dead_code)]
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq)]
 enum Item {
     Color(Color),
     Shape(Piece, Piece, Piece, Piece),
@@ -266,6 +295,10 @@ impl Item {
             (Color(_), Color(_)) => false,
             (Shape(_, _, _, _), Shape(_, _, _, _)) => false,
         }
+    }
+
+    fn padding(&self) -> f32 {
+        5.0
     }
 }
 
@@ -335,6 +368,14 @@ impl ItemSlot {
 
     fn is_done(&self) -> bool {
         self.item.is_some() && self.progress >= 1.0
+    }
+
+    fn free_space(&self) -> f32 {
+        if let Some(item) = &self.item {
+            self.progress.min(1.0) - item.padding()
+        } else {
+            1.0
+        }
     }
 }
 
@@ -421,6 +462,7 @@ fn items_in_out_system(
         Query<(Entity, &BuildingState, &Pos)>,
         Query<&mut BuildingState>,
     )>,
+    mut belt_path: ResMut<BeltPath>,
     map: Res<MapCache>,
 ) {
     let mut transfers = Vec::new();
@@ -435,13 +477,20 @@ fn items_in_out_system(
             if let Some(you) = map.at(&my.dir.pos(pos)) {
                 if you != me {
                     if let Ok(your) = queries.q0().get_component::<BuildingState>(you) {
-                        if your
-                            .input_slots
-                            .get(0)
-                            .map(ItemSlot::is_free)
-                            .unwrap_or(false)
-                        {
-                            transfers.push((me, you));
+                        match your.tag {
+                            BuildingTag::Belt => {
+                                transfers.push((me, you));
+                            }
+                            _ => {
+                                if your
+                                    .input_slots
+                                    .get(0)
+                                    .map(ItemSlot::is_free)
+                                    .unwrap_or(false)
+                                {
+                                    transfers.push((me, you));
+                                }
+                            }
                         }
                     }
                 }
@@ -455,31 +504,39 @@ fn items_in_out_system(
         let (item, overshoot) = out_slot.take().expect("just checked");
 
         let mut your = queries.q1_mut().get_mut(you).expect("just fetched");
-        your.input_slots
-            .get_mut(0)
-            .expect("just used")
-            .put_progress(item, overshoot);
+        match your.tag {
+            BuildingTag::Belt => {
+                belt_path.add_item(overshoot, item);
+            }
+            _ => match your.input_slots.get_mut(0) {
+                Some(slot) => slot.put_progress(item, overshoot),
+                None => {}
+            },
+        }
     }
 }
 
 /////////////////////////////////////////////////////////////////////
 
 fn debug_render_items(
+    path: Query<&BeltPath>,
     building: Query<(&BuildingState, &GlobalTransform)>,
     mut lines: ResMut<DebugLines>,
 ) {
     let mut items = Vec::new();
 
+    for path in path.iter() {
+        for (path_pos, item) in path.items.iter() {
+            let (pos, dir) = path.get_pos_dir(*path_pos);
+            items.push((item, pos, dir));
+        }
+    }
+
     for (state, transform) in building.iter() {
         for slot in state.input_slots.iter() {
             if let Some(item) = &slot.item {
                 let pos = transform.translation;
-                let dir = match state.dir {
-                    Dir::W => Vec3::new(-1.0, 0.0, 0.0),
-                    Dir::E => Vec3::new(1.0, 0.0, 0.0),
-                    Dir::N => Vec3::new(0.0, 1.0, 0.0),
-                    Dir::S => Vec3::new(0.0, -1.0, 0.0),
-                };
+                let dir = state.dir.vec();
                 let pos = pos + dir * -16.0 + dir * slot.progress * 16.0;
                 items.push((item, pos, dir));
             }
@@ -488,12 +545,7 @@ fn debug_render_items(
         for slot in state.output_slots.iter() {
             if let Some(item) = &slot.item {
                 let pos = transform.translation;
-                let dir = match state.dir {
-                    Dir::W => Vec3::new(-1.0, 0.0, 0.0),
-                    Dir::E => Vec3::new(1.0, 0.0, 0.0),
-                    Dir::N => Vec3::new(0.0, 1.0, 0.0),
-                    Dir::S => Vec3::new(0.0, -1.0, 0.0),
-                };
+                let dir = state.dir.vec();
                 let pos = pos + dir * slot.progress * 16.0;
                 items.push((item, pos, dir));
             }
@@ -544,13 +596,211 @@ fn debug_building_output_system(building: Query<&BuildingState>) {
 
 /////////////////////////////////////////////////////////////////////
 
-fn sync_pos_with_transform(mut query: Query<(&Pos, &mut Transform), Changed<Pos>>) {
+fn sys_sync_pos_with_transform(mut query: Query<(&Pos, &mut Transform), Changed<Pos>>) {
     for (pos, mut transform) in query.iter_mut() {
-        transform.translation.x = pos.0 as f32 * 32.0;
-        transform.translation.y = pos.1 as f32 * -32.0;
+        sync_pos_with_transform(pos, &mut transform);
     }
 }
 
+fn sync_pos_with_transform(pos: &Pos, transform: &mut Transform) {
+    transform.translation.x = pos.0 as f32 * 32.0;
+    transform.translation.y = pos.1 as f32 * -32.0;
+}
+
+/*
+fn sync_belt_path_belt_positions(mut path: ResMut<BeltPath>, belts: Query<(Entity, &Transform), (With<BeltState>, Changed<Transform>)>) {
+    // iterate belts entity transform
+    // look up path, here from BeltPath resource
+    // look up belt entity in vec and update transform
+}
+*/
+
 /////////////////////////////////////////////////////////////////////
 
+struct BeltPath {
+    total_length: f32,
+    speed: f32,
+
+    output: Option<Entity>,
+    belts: Vec<(Entity, Vec3, Vec3)>,
+    items: Vec<(f32, Item)>,
+}
+
+impl BeltPath {
+    fn add_belt(&mut self, belt: Entity, transform: &Transform) {
+        let start = transform.translation - Vec3::X * 16.0;
+        let end = transform.translation + Vec3::X * 16.0;
+        self.belts.push((belt, start, end));
+        self.total_length += 32.0;
+    }
+
+    fn add_item(&mut self, pos: f32, item: Item) {
+        let index = self
+            .items
+            .binary_search_by(|e| e.0.total_cmp(&pos))
+            .map_or_else(|i| i, |i| i);
+        self.items.insert(dbg!(index), (pos, item));
+    }
+
+    pub fn get_pos_dir(&self, path_pos: f32) -> (Vec3, Vec3) {
+        let path_pos = path_pos.clamp(0.0, (self.belts.len() - 1) as f32);
+        let index_float = path_pos.floor();
+        let offset = path_pos - index_float;
+        let index = index_float as usize;
+        let (_belt, start, end) = self.belts.get(index).expect("just clamped index").clone();
+        let dir = (end - start).normalize_or_zero();
+        (start + dir * offset * 32.0, dir)
+    }
+}
+
+impl_default!(BeltPath {
+    total_length: 0.0,
+    speed: 1.0,
+    output: None,
+    belts: Vec::new(),
+    items: Vec::new(),
+});
+
+struct BeltState {
+    path: Option<()>,
+}
+
+fn belt_path_advance_items(
+    mut path: Query<&mut BeltPath>,
+    mut building: Query<&mut BuildingState>,
+    secs: Res<f32>,
+) {
+    let secs = *secs;
+
+    for mut path in path.iter_mut() {
+        let total_length = path.total_length;
+        let speed = path.speed;
+        let advance = speed * secs;
+        let output = path.output;
+
+        let out_space = if let Some(mut building) = output.and_then(|e| building.get_mut(e).ok()) {
+            building
+                .input_slots
+                .get_mut(0)
+                .map_or(0.0, |slot| slot.free_space())
+        } else {
+            path.output = None;
+            0.0
+        };
+
+        let mut next_stop = NextStop::End(total_length);
+
+        for (item_pos, item) in path.items.iter_mut().rev() {
+            let padding = item.padding();
+            let stop = match next_stop {
+                NextStop::End(stop) => stop,
+                NextStop::Item(stop) => stop - padding,
+            };
+
+            *item_pos = stop.min(*item_pos + advance);
+            next_stop = NextStop::Item(*item_pos - padding);
+        }
+    }
+}
+
+enum NextStop {
+    End(f32),
+    Item(f32),
+}
+
+#[test]
+fn belt_path_advance_items_advances() {
+    let mut world = World::new();
+    let mut stage = SystemStage::parallel();
+    stage.add_system(belt_path_advance_items.system());
+
+    world.insert_resource(0.5f32);
+
+    let ex_item0 = Item::Color(Color::Gray);
+    let ex_item1 = Item::Color(Color::Red);
+    let spacing = ex_item0.padding() + ex_item1.padding();
+
+    let mut path = BeltPath {
+        speed: 1.0,
+        total_length: spacing * 2.0,
+        ..Default::default()
+    };
+
+    path.add_item(0.0, ex_item0.clone());
+    path.add_item(spacing, ex_item1.clone());
+    let entity = world.spawn().insert(path).id();
+
+    stage.run(&mut world);
+
+    let path = world.get::<BeltPath>(entity).unwrap();
+    let (pos0, item0) = path.items.get(0).unwrap();
+    let (pos1, item1) = path.items.get(1).unwrap();
+
+    assert_eq!(*item0, ex_item0);
+    assert_eq!(*item1, ex_item1);
+    assert_eq!(*pos0, 0.5);
+    assert_eq!(*pos1, spacing + 0.5);
+}
+
+#[test]
+fn belt_path_advance_items_stop_at_end_with_padding() {
+    let mut world = World::new();
+    let mut stage = SystemStage::parallel();
+    stage.add_system(belt_path_advance_items.system());
+
+    world.insert_resource(100.0f32); // far beyond belt length
+
+    let ex_item0 = Item::Color(Color::Gray);
+    let ex_item1 = Item::Color(Color::Red);
+    let spacing = ex_item0.padding() + ex_item1.padding();
+
+    let mut path = BeltPath {
+        speed: 1.0,
+        total_length: spacing * 2.0,
+        ..Default::default()
+    };
+
+    path.add_item(0.0, ex_item0.clone());
+    path.add_item(1.0, ex_item1.clone());
+    let entity = world.spawn().insert(path).id();
+
+    stage.run(&mut world);
+
+    let path = world.get::<BeltPath>(entity).unwrap();
+    let (pos0, item0) = path.items.get(0).unwrap();
+    let (pos1, item1) = path.items.get(1).unwrap();
+
+    assert_eq!(*item0, ex_item0);
+    assert_eq!(*item1, ex_item1);
+    assert_eq!(*pos0, path.total_length - spacing);
+    assert_eq!(*pos1, path.total_length);
+}
+
+fn debug_belt_path_place_random_items(
+    trigger: Res<Input<KeyCode>>,
+    mut path: Query<&mut BeltPath>,
+    time: Res<f32>,
+) {
+    if trigger.just_pressed(KeyCode::I) {
+        for mut path in path.iter_mut() {
+            let item = Item::Color(Color::Gray);
+            let pos = time.sin().abs() * path.total_length;
+            path.add_item(pos, item);
+        }
+    }
+}
+
+
+fn debug_belt_path_draw(
+    trigger: Res<Input<KeyCode>>,
+    path: Res<BeltPath>,
+    mut lines: ResMut<DebugLines>,
+) {
+    if trigger.just_pressed(KeyCode::P) {
+        let (start, _) = path.get_pos_dir(0.0);
+        let (end, _) = path.get_pos_dir(path.total_length / 32.0);
+        lines.line_colored(start, end, 1.0, BevyColor::GREEN);
+    }
+}
+     
 /////////////////////////////////////////////////////////////////////
