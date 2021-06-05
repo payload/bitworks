@@ -797,6 +797,7 @@ dependencies = [
  "bevy",
  "bevy_prototype_debug_lines",
  "bevy_prototype_lyon",
+ "fastrand",
  "lazy_static",
  "prometheus",
  "prometheus-static-metric",
