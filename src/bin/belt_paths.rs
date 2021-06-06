@@ -1,10 +1,12 @@
 #![feature(total_cmp)]
 
+use bevy::math::vec2;
 use bevy::math::vec3;
 // bevy
 use bevy::input::system::exit_on_esc_system;
 use bevy::prelude::*;
 
+use bevy::render::pass;
 // debug lines
 use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 
@@ -14,6 +16,7 @@ fn main() {
         .add_plugin(DebugLinesPlugin)
         .add_system(exit_on_esc_system.system())
         .add_system(belt_advance_items_system.system())
+        .add_system(debug_draw_item_input_system.system())
         .add_system(debug_draw_belt_system.system())
         .add_system(debug_belt_path_place_random_items_system.system())
         .add_startup_system(setup.system());
@@ -22,7 +25,9 @@ fn main() {
 
 fn setup(mut cmds: Commands) {
     cmds.spawn_bundle(camera());
-    cmds.spawn_bundle(belt());
+    cmds.spawn_bundle(belt1());
+    let item_sink = cmds.spawn_bundle(item_sink()).id();
+    cmds.spawn_bundle(belt2(item_sink));
 }
 
 fn camera() -> impl Bundle {
@@ -32,42 +37,131 @@ fn camera() -> impl Bundle {
     camera
 }
 
-fn belt() -> impl Bundle {
+fn belt1() -> impl Bundle {
     (Belt {
         segments: vec![
-            BeltSegment::straight(-30, 0, 0, 0),
-            BeltSegment::straight(0, 0, 30, 20),
+            BeltSegment::straight(-30, 30, 0, 30),
+            BeltSegment::straight(0, 30, 30, 50),
         ],
         items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
+        output: None,
     },)
 }
 
-fn belt_advance_items_system(mut belts: Query<&mut Belt>, time: Res<Time>) {
+fn belt2(output: Entity) -> impl Bundle {
+    (Belt {
+        segments: vec![
+            BeltSegment::straight(-30, 10, 0, 0),
+            BeltSegment::straight(0, 0, 30, -20),
+        ],
+        items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
+        output: Some(output),
+    },)
+}
+
+fn item_sink() -> impl Bundle {
+    (
+        ItemInput {
+            capacity: 2,
+            items: Vec::new(),
+        },
+        vec2(30.0, -20.0),
+    )
+}
+
+fn belt_advance_items_system(
+    mut belts: Query<&mut Belt>,
+    mut item_inputs: Query<&mut ItemInput>,
+    time: Res<Time>,
+) {
     let time = time.delta_seconds();
 
     for mut belt in belts.iter_mut() {
+        let mut output = belt
+            .output
+            .and_then(|output| item_inputs.get_mut(output).ok());
+
         let speed = 10.0;
         let advance = speed * time;
 
         let total_length = belt.total_length();
-        let mut next_stop = NextStop::End(total_length);
+        let mut next_stop = if let Some(ref mut output) = output {
+            NextStop::Output(output)
+        } else {
+            NextStop::End(total_length)
+        };
+
+        let mut pass_on = 0usize;
 
         for item in belt.items.iter_mut().rev() {
             let padding = item.padding();
-            let stop = match next_stop {
-                NextStop::End(stop) => stop,
-                NextStop::Item(stop) => stop - padding,
+            match next_stop {
+                NextStop::End(stop) => {
+                    item.pos = stop.min(item.pos + advance);
+                    next_stop = NextStop::Item(item.pos - padding);
+                }
+                NextStop::Item(stop) => {
+                    item.pos = (stop - padding).min(item.pos + advance);
+                    next_stop = NextStop::Item(item.pos - padding);
+                }
+                NextStop::Output(ref output) => {
+                    if item.pos + advance > total_length {
+                        let space = output.capacity.saturating_sub(output.items.len());
+                        match space {
+                            0 => {
+                                item.pos = total_length;
+                                next_stop = NextStop::Item(item.pos - padding);
+                            }
+                            1 => {
+                                item.pos += advance;
+                                next_stop = NextStop::End(total_length);
+                                pass_on += 1;
+                            }
+                            _ => {
+                                item.pos += advance;
+                                pass_on += 1;
+                            }
+                        }
+                    } else {
+                        item.pos += advance;
+                        next_stop = NextStop::Item(item.pos - padding);
+                    }
+                }
             };
+        }
 
-            item.pos = stop.min(item.pos + advance);
-            next_stop = NextStop::Item(item.pos - padding);
+        if pass_on > 0 {
+            let mut output = output.expect("only pass on if output exists");
+            let split_at = belt.items.len() - pass_on;
+            output.items.extend(belt.items.split_off(split_at));
         }
     }
 }
 
-enum NextStop {
+enum NextStop<'a> {
     End(f32),
     Item(f32),
+    Output(&'a mut ItemInput),
+}
+
+fn debug_draw_item_input_system(
+    mut lines: ResMut<DebugLines>,
+    belts: Query<&Belt>,
+    inputs: Query<(Entity, &Pos, &ItemInput)>,
+) {
+    for belt in belts.iter() {
+        for output in belt.output.iter() {
+            for (it, pos, input) in inputs.get(*output) {
+                let pos = pos.extend(0.0);
+                let x = Vec3::X;
+                let y = Vec3::Y;
+                lines.line_colored(pos + y, pos + x, 0.0, Color::WHITE);
+                lines.line_colored(pos + x, pos - y, 0.0, Color::WHITE);
+                lines.line_colored(pos - y, pos - x, 0.0, Color::WHITE);
+                lines.line_colored(pos - x, pos + y, 0.0, Color::WHITE);
+            }
+        }
+    }
 }
 
 fn debug_draw_belt_system(mut lines: ResMut<DebugLines>, belts: Query<&Belt>) {
@@ -101,9 +195,12 @@ fn debug_belt_path_place_random_items_system(
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 struct Belt {
     segments: Vec<BeltSegment>,
     items: Vec<BeltItem>,
+    output: Option<Entity>,
 }
 
 impl Belt {
@@ -151,6 +248,8 @@ impl Belt {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 struct BeltItem {
     pos: f32,
     item: Item,
@@ -174,6 +273,8 @@ impl BeltItem {
     }
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 struct BeltSegment {
     start: Vec3,
     end: Vec3,
@@ -187,6 +288,8 @@ impl BeltSegment {
         }
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
 
 enum Item {
     Red,
@@ -205,3 +308,16 @@ impl Item {
         Self::Red
     }
 }
+
+///////////////////////////////////////////////////////////////////////////////
+
+struct ItemInput {
+    items: Vec<BeltItem>,
+    capacity: usize,
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+type Pos = Vec2;
+
+///////////////////////////////////////////////////////////////////////////////
