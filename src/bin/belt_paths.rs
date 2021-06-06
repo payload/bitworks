@@ -25,6 +25,7 @@ fn main() {
 }
 
 fn setup(mut cmds: Commands) {
+    let cmds = &mut cmds;
     cmds.spawn_bundle(camera());
     cmds.spawn_bundle(belt1());
 
@@ -33,7 +34,46 @@ fn setup(mut cmds: Commands) {
 
     let belt3_sink = cmds.spawn_bundle(item_sink(vec2(30.0, -30.0))).id();
     let belt3 = cmds.spawn_bundle(belt3(belt3_sink)).id();
-    cmds.spawn_bundle(item_generator(belt3, vec2(-30.0, -30.0)));
+    cmds.spawn_bundle(item_generator(belt3, vec2(-30.0, -30.0), 0.0));
+
+    {
+        let in1 = (ItemInput::new(1), vec2(0.0, -40.0)).spawn(cmds);
+        let in2 = (ItemInput::new(1), vec2(0.0, -45.0)).spawn(cmds);
+        (NullSink::new(&[in1]),).spawn(cmds);
+
+        let belt1 = belt(-30, -40, in1).spawn(cmds);
+        let belt2 = belt(-30, -45, in2).spawn(cmds);
+
+        let merge1 = (ItemInput::new(1), vec2(-35.0, -40.0)).spawn(cmds);
+        let merge2 = (ItemInput::new(1), vec2(-35.0, -45.0)).spawn(cmds);
+
+        (Merger {
+            cooldown: 0.0,
+            next_time: 0.0,
+            items_per_step: 1,
+            input_cursor: 0,
+            output_cursor: 0,
+            inputs: vec![merge1, merge2],
+            outputs: vec![belt1, belt2],
+        },)
+            .spawn(cmds);
+
+        let belt_merge1 = belt(-65, -40, merge1).spawn(cmds);
+        let belt_merge2 = belt(-65, -45, merge2).spawn(cmds);
+
+        item_generator(belt_merge1, vec2(-65.0, -40.0), 0.5).spawn(cmds);
+        item_generator(belt_merge2, vec2(-65.0, -45.0), 0.0).spawn(cmds);
+    }
+}
+
+trait SpawnBundle {
+    fn spawn(self, cmds: &mut Commands) -> Entity;
+}
+
+impl<T: Bundle> SpawnBundle for T {
+    fn spawn(self, cmds: &mut Commands) -> Entity {
+        cmds.spawn_bundle(self).id()
+    }
 }
 
 fn camera() -> impl Bundle {
@@ -76,6 +116,14 @@ fn belt3(output: Entity) -> impl Bundle {
     },)
 }
 
+fn belt(x: i32, y: i32, output: Entity) -> impl Bundle {
+    (Belt {
+        segments: vec![BeltSegment::straight(x, y, x + 30, y)],
+        items: vec![],
+        output: Some(output),
+    },)
+}
+
 fn item_sink(pos: Vec2) -> impl Bundle {
     (
         pos,
@@ -86,11 +134,11 @@ fn item_sink(pos: Vec2) -> impl Bundle {
     )
 }
 
-fn item_generator(belt: Entity, pos: Vec2) -> impl Bundle {
+fn item_generator(belt: Entity, pos: Vec2, cooldown: f32) -> impl Bundle {
     (
         pos,
         RandomItemGenerator {
-            cooldown: 0.0,
+            cooldown,
             next_time: 0.0,
             output: Some(belt),
         },
@@ -349,6 +397,13 @@ struct ItemInput {
 }
 
 impl ItemInput {
+    fn new(capacity: usize) -> Self {
+        Self {
+            capacity,
+            items: Vec::new(),
+        }
+    }
+
     fn space(&self) -> usize {
         self.capacity.saturating_sub(self.items.len())
     }
@@ -358,6 +413,14 @@ impl ItemInput {
 
 struct NullSink {
     inputs: Vec<Entity>,
+}
+
+impl NullSink {
+    fn new(inputs: &[Entity]) -> Self {
+        Self {
+            inputs: inputs.into(),
+        }
+    }
 }
 
 fn null_sink_system(mut sinks: Query<&mut NullSink>, mut inputs: Query<&mut ItemInput>) {
@@ -497,7 +560,7 @@ fn merger_system(
                     did_something = true;
                 } else {
                     break 'item_loop;
-                } 
+                }
             }
 
             if did_something {
