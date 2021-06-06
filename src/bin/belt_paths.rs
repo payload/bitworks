@@ -1,12 +1,9 @@
 #![feature(total_cmp)]
 
-use bevy::math::vec2;
-use bevy::math::vec3;
-// bevy
-use bevy::input::system::exit_on_esc_system;
 use bevy::prelude::*;
+use bevy::math::{vec2, vec3};
+use bevy::input::system::exit_on_esc_system;
 
-use bevy::render::pass;
 // debug lines
 use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 
@@ -106,21 +103,18 @@ fn belt_advance_items_system(
                 }
                 NextStop::Output(ref output) => {
                     if item.pos + advance > total_length {
-                        let space = output.capacity.saturating_sub(output.items.len());
-                        match space {
-                            0 => {
-                                item.pos = total_length;
-                                next_stop = NextStop::Item(item.pos - padding);
-                            }
-                            1 => {
-                                item.pos += advance;
+                        // when item is passed on, item.pos is set to the overflow after total length
+                        let space = output.space();
+                        if space > 0 {
+                            pass_on += 1;
+                            item.pos = item.pos + advance - total_length;
+                            
+                            if space == 1 {
                                 next_stop = NextStop::End(total_length);
-                                pass_on += 1;
                             }
-                            _ => {
-                                item.pos += advance;
-                                pass_on += 1;
-                            }
+                        } else {
+                            item.pos = total_length;
+                            next_stop = NextStop::Item(item.pos - padding);
                         }
                     } else {
                         item.pos += advance;
@@ -151,7 +145,7 @@ fn debug_draw_item_input_system(
 ) {
     for belt in belts.iter() {
         for output in belt.output.iter() {
-            for (it, pos, input) in inputs.get(*output) {
+            for (_it, pos, _input) in inputs.get(*output) {
                 let pos = pos.extend(0.0);
                 let x = Vec3::X;
                 let y = Vec3::Y;
@@ -189,7 +183,7 @@ fn debug_belt_path_place_random_items_system(
 ) {
     if trigger.just_pressed(KeyCode::Space) {
         for mut belt in belts.iter_mut() {
-            let item = BeltItem::new(belt.total_length() * fastrand::f32(), Item::Red);
+            let item = BeltItem::new(belt.total_length() * fastrand::f32(), Item::random());
             belt.add_item(item);
         }
     }
@@ -291,6 +285,7 @@ impl BeltSegment {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#[derive(Clone, Copy, Debug)]
 enum Item {
     Red,
     Green,
@@ -305,7 +300,9 @@ impl Item {
     }
 
     fn random() -> Self {
-        Self::Red
+        use Item::*;
+        let items = [Red, Green];
+        items[fastrand::usize(0..items.len())]
     }
 }
 
@@ -314,6 +311,12 @@ impl Item {
 struct ItemInput {
     items: Vec<BeltItem>,
     capacity: usize,
+}
+
+impl ItemInput {
+    fn space(&self) -> usize {
+        self.capacity.saturating_sub(self.items.len())
+    }
 }
 
 ///////////////////////////////////////////////////////////////////////////////
