@@ -1,4 +1,5 @@
 #![feature(total_cmp)]
+#![feature(drain_filter)]
 
 use bevy::input::system::exit_on_esc_system;
 use bevy::math::{vec2, vec3};
@@ -14,6 +15,8 @@ fn main() {
         .add_system(exit_on_esc_system.system())
         .add_system(belt_advance_items_system.system())
         .add_system(random_item_generator_system.system())
+        .add_system(null_sink_system.system())
+        .add_system(merger_system.system())
         .add_system(debug_draw_item_things_system.system())
         .add_system(debug_draw_belt_system.system())
         .add_system(debug_belt_path_place_random_items_system.system())
@@ -188,8 +191,15 @@ fn debug_draw_belt_system(mut lines: ResMut<DebugLines>, belts: Query<&Belt>) {
     //      usually overdraws other lines
     for belt in belts.iter() {
         for segment in belt.segments.iter() {
-            let normal = (segment.end - segment.start).any_orthogonal_vector().normalize();
-            lines.line_colored(segment.start + normal, segment.end + normal, 0.015, Color::BLACK);
+            let normal = (segment.end - segment.start)
+                .any_orthogonal_vector()
+                .normalize();
+            lines.line_colored(
+                segment.start + normal,
+                segment.end + normal,
+                0.015,
+                Color::BLACK,
+            );
         }
 
         for item in belt.items.iter() {
@@ -268,6 +278,7 @@ impl Belt {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+#[derive(Clone, Debug)]
 struct BeltItem {
     pos: f32,
     item: Item,
@@ -345,6 +356,25 @@ impl ItemInput {
 
 ///////////////////////////////////////////////////////////////////////////////
 
+struct NullSink {
+    inputs: Vec<Entity>,
+}
+
+fn null_sink_system(mut sinks: Query<&mut NullSink>, mut inputs: Query<&mut ItemInput>) {
+    for mut sink in sinks.iter_mut() {
+        sink.inputs.drain_filter(|entity| {
+            if let Ok(mut input) = inputs.get_mut(*entity) {
+                input.items.clear();
+                false
+            } else {
+                true
+            }
+        });
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 struct RandomItemGenerator {
     next_time: f64,
     cooldown: f32,
@@ -366,18 +396,113 @@ fn random_item_generator_system(
 
                     if is_space(&gen_item, &belt) {
                         belt.items.insert(0, gen_item);
-                        generator.next_time += generator.cooldown as f64;
+                        generator.next_time = time + generator.cooldown as f64;
                     }
                 }
             }
         }
     }
+}
 
-    fn is_space(gen_item: &BeltItem, belt: &Belt) -> bool {
-        if let Some(item) = belt.items.first() {
-            gen_item.padding() <= item.pos - item.padding()
-        } else {
-            true
+fn is_space(gen_item: &BeltItem, belt: &Belt) -> bool {
+    if let Some(item) = belt.items.first() {
+        gen_item.padding() <= item.pos - item.padding()
+    } else {
+        true
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+struct Merger {
+    inputs: Vec<Entity>,
+    outputs: Vec<Entity>,
+
+    next_time: f64,
+    cooldown: f32,
+    items_per_step: usize,
+    input_cursor: usize,
+    output_cursor: usize,
+}
+
+fn merger_system(
+    mut mergers: Query<&mut Merger>,
+    mut inputs: Query<&mut ItemInput>,
+    mut belts: Query<&mut Belt>,
+    time: Res<Time>,
+) {
+    let time = time.seconds_since_startup();
+
+    for mut merger in mergers.iter_mut() {
+        if merger.next_time <= time {
+            merger
+                .inputs
+                .drain_filter(|it| inputs.get_mut(*it).is_err());
+            merger
+                .outputs
+                .drain_filter(|it| belts.get_mut(*it).is_err());
+
+            if merger.input_cursor >= merger.inputs.len() {
+                merger.input_cursor = 0;
+            }
+            if merger.output_cursor >= merger.outputs.len() {
+                merger.output_cursor = 0;
+            }
+
+            if merger.inputs.is_empty() || merger.outputs.is_empty() {
+                continue;
+            }
+
+            // CHECKED: inputs and outputs exist, vecs are non-empty, cursors in range
+
+            let in_len = merger.inputs.len();
+            let out_len = merger.outputs.len();
+            let mut did_something = false;
+
+            'item_loop: for _ in 0..merger.items_per_step {
+                // try every input beginning from input cursor
+                //  then try every output beginning from output cursor
+                //   if item is passed on set output cursor and break output loop
+                let in_cursor = merger.input_cursor;
+                let out_cursor = merger.output_cursor;
+                let mut passed_on = false;
+
+                'input_loop: for index in (in_cursor..in_len).chain(0..in_cursor) {
+                    let input_e = *merger.inputs.get(index).expect("checked");
+                    let mut input = inputs.get_mut(input_e).expect("checked");
+
+                    if let Some(item) = input.items.last().cloned() {
+                        'output_loop: for index in (out_cursor..out_len).chain(0..out_cursor) {
+                            let output_e = *merger.outputs.get(index).expect("checked");
+                            let mut belt = belts.get_mut(output_e).expect("checked");
+
+                            if is_space(&item, &belt) {
+                                if let Some(item) = input.items.pop() {
+                                    belt.add_item(item);
+                                    merger.output_cursor = (index + 1) % out_len;
+                                    passed_on = true;
+                                    break 'output_loop;
+                                }
+                            }
+                        }
+
+                        if passed_on {
+                            merger.input_cursor = (index + 1) % in_len;
+                            break 'input_loop;
+                        }
+                    }
+                }
+
+                if passed_on {
+                    did_something = true;
+                } else {
+                    break 'item_loop;
+                } 
+            }
+
+            if did_something {
+                merger.next_time = time + merger.cooldown as f64;
+            }
         }
     }
 }
