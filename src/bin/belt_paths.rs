@@ -1,8 +1,8 @@
 #![feature(total_cmp)]
 
-use bevy::prelude::*;
-use bevy::math::{vec2, vec3};
 use bevy::input::system::exit_on_esc_system;
+use bevy::math::{vec2, vec3};
+use bevy::prelude::*;
 
 // debug lines
 use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
@@ -13,7 +13,8 @@ fn main() {
         .add_plugin(DebugLinesPlugin)
         .add_system(exit_on_esc_system.system())
         .add_system(belt_advance_items_system.system())
-        .add_system(debug_draw_item_input_system.system())
+        .add_system(random_item_generator_system.system())
+        .add_system(debug_draw_item_things_system.system())
         .add_system(debug_draw_belt_system.system())
         .add_system(debug_belt_path_place_random_items_system.system())
         .add_startup_system(setup.system());
@@ -23,8 +24,13 @@ fn main() {
 fn setup(mut cmds: Commands) {
     cmds.spawn_bundle(camera());
     cmds.spawn_bundle(belt1());
-    let item_sink = cmds.spawn_bundle(item_sink()).id();
-    cmds.spawn_bundle(belt2(item_sink));
+
+    let belt2_sink = cmds.spawn_bundle(item_sink(vec2(30.0, -20.0))).id();
+    cmds.spawn_bundle(belt2(belt2_sink));
+
+    let belt3_sink = cmds.spawn_bundle(item_sink(vec2(30.0, -30.0))).id();
+    let belt3 = cmds.spawn_bundle(belt3(belt3_sink)).id();
+    cmds.spawn_bundle(item_generator(belt3, vec2(-30.0, -30.0)));
 }
 
 fn camera() -> impl Bundle {
@@ -56,13 +62,35 @@ fn belt2(output: Entity) -> impl Bundle {
     },)
 }
 
-fn item_sink() -> impl Bundle {
+fn belt3(output: Entity) -> impl Bundle {
+    (Belt {
+        segments: vec![
+            BeltSegment::straight(-30, -30, 0, -30),
+            BeltSegment::straight(0, -30, 30, -30),
+        ],
+        items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
+        output: Some(output),
+    },)
+}
+
+fn item_sink(pos: Vec2) -> impl Bundle {
     (
+        pos,
         ItemInput {
             capacity: 2,
             items: Vec::new(),
         },
-        vec2(30.0, -20.0),
+    )
+}
+
+fn item_generator(belt: Entity, pos: Vec2) -> impl Bundle {
+    (
+        pos,
+        RandomItemGenerator {
+            cooldown: 0.0,
+            next_time: 0.0,
+            output: Some(belt),
+        },
     )
 }
 
@@ -108,7 +136,7 @@ fn belt_advance_items_system(
                         if space > 0 {
                             pass_on += 1;
                             item.pos = item.pos + advance - total_length;
-                            
+
                             if space == 1 {
                                 next_stop = NextStop::End(total_length);
                             }
@@ -138,23 +166,18 @@ enum NextStop<'a> {
     Output(&'a mut ItemInput),
 }
 
-fn debug_draw_item_input_system(
+fn debug_draw_item_things_system(
     mut lines: ResMut<DebugLines>,
-    belts: Query<&Belt>,
-    inputs: Query<(Entity, &Pos, &ItemInput)>,
+    things: Query<(Entity, &Pos), Or<(With<RandomItemGenerator>, With<ItemInput>)>>,
 ) {
-    for belt in belts.iter() {
-        for output in belt.output.iter() {
-            for (_it, pos, _input) in inputs.get(*output) {
-                let pos = pos.extend(0.0);
-                let x = Vec3::X;
-                let y = Vec3::Y;
-                lines.line_colored(pos + y, pos + x, 0.0, Color::WHITE);
-                lines.line_colored(pos + x, pos - y, 0.0, Color::WHITE);
-                lines.line_colored(pos - y, pos - x, 0.0, Color::WHITE);
-                lines.line_colored(pos - x, pos + y, 0.0, Color::WHITE);
-            }
-        }
+    for (_it, pos) in things.iter() {
+        let pos = pos.extend(0.0);
+        let x = Vec3::X;
+        let y = Vec3::Y;
+        lines.line_colored(pos + y, pos + x, 0.0, Color::WHITE);
+        lines.line_colored(pos + x, pos - y, 0.0, Color::WHITE);
+        lines.line_colored(pos - y, pos - x, 0.0, Color::WHITE);
+        lines.line_colored(pos - x, pos + y, 0.0, Color::WHITE);
     }
 }
 
@@ -165,14 +188,15 @@ fn debug_draw_belt_system(mut lines: ResMut<DebugLines>, belts: Query<&Belt>) {
     //      usually overdraws other lines
     for belt in belts.iter() {
         for segment in belt.segments.iter() {
-            lines.line_colored(segment.start, segment.end, 0.0, Color::BLACK);
+            let normal = (segment.end - segment.start).any_orthogonal_vector().normalize();
+            lines.line_colored(segment.start + normal, segment.end + normal, 0.015, Color::BLACK);
         }
 
         for item in belt.items.iter() {
             let (pos, dir) = belt.location_on_path(item.pos);
             let start = pos - 0.5 * dir;
             let end = pos + 0.5 * dir;
-            lines.line_colored(start, end, 0.5, item.item.color());
+            lines.line_colored(start, end, 0.02, item.item.color());
         }
     }
 }
@@ -316,6 +340,45 @@ struct ItemInput {
 impl ItemInput {
     fn space(&self) -> usize {
         self.capacity.saturating_sub(self.items.len())
+    }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+struct RandomItemGenerator {
+    next_time: f64,
+    cooldown: f32,
+    output: Option<Entity>,
+}
+
+fn random_item_generator_system(
+    mut generators: Query<&mut RandomItemGenerator>,
+    mut belts: Query<&mut Belt>,
+    time: Res<Time>,
+) {
+    let time = time.seconds_since_startup();
+
+    for mut generator in generators.iter_mut() {
+        if generator.next_time <= time {
+            if let Some(output) = generator.output {
+                if let Ok(mut belt) = belts.get_mut(output) {
+                    let gen_item = BeltItem::new(0.0, Item::random());
+
+                    if is_space(&gen_item, &belt) {
+                        belt.items.insert(0, gen_item);
+                        generator.next_time += generator.cooldown as f64;
+                    }
+                }
+            }
+        }
+    }
+
+    fn is_space(gen_item: &BeltItem, belt: &Belt) -> bool {
+        if let Some(item) = belt.items.first() {
+            gen_item.padding() <= item.pos - item.padding()
+        } else {
+            true
+        }
     }
 }
 
