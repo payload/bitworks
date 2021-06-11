@@ -1,6 +1,6 @@
 use std::slice::{Iter, IterMut};
 
-use bevy::{ prelude::*, math::vec3 };
+use bevy::{math::vec3, prelude::*};
 
 ///////////////////////////////////////////////////////////////////////////////
 

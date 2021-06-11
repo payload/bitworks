@@ -1,5 +1,5 @@
-use bevy::prelude::*;
 use crate::game_types::*;
+use bevy::prelude::*;
 
 pub fn belt_advance_items_system(
     mut belts: Query<&mut Belt>,
