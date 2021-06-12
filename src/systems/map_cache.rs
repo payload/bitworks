@@ -1,17 +1,27 @@
-use bevy::{prelude::*, utils::HashMap};
+use bevy::{math::vec2, prelude::*, utils::HashMap};
 
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct MapPos {
-    x: i32,
-    y: i32,
+    pub x: i32,
+    pub y: i32,
 }
 
 impl MapPos {
-    fn new(x: i32, y: i32) -> Self {
+    pub fn new(x: i32, y: i32) -> Self {
         Self { x, y }
+    }
+
+    pub fn apply(&self, factor: f32, transform: &mut Transform) {
+        transform.translation.x = self.x as f32 * factor;
+        transform.translation.y = self.y as f32 * factor;
+    }
+
+    pub fn vec2(&self) -> Vec2 {
+        vec2(self.x as f32, self.y as f32)
     }
 }
 
+/// (x: i32, y: i32) -> MapPos
 pub fn map_pos<T: Into<i32>>(x: T, y: T) -> MapPos {
     MapPos::new(x.into(), y.into())
 }
@@ -43,5 +53,11 @@ pub fn _map_cache_gc_system(mut map: ResMut<MapCache>, removed: RemovedComponent
         map.entity_cache
             .remove(&e)
             .and_then(|pos| map.pos_cache.remove(&pos));
+    }
+}
+
+pub fn map_pos_apply_transform_system(mut query: Query<(&MapPos, &mut Transform), Changed<MapPos>>) {
+    for (pos, mut transform) in query.iter_mut() {
+        pos.apply(32.0, &mut transform);
     }
 }

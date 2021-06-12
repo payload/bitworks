@@ -7,6 +7,8 @@ pub use bevy::prelude::*;
 
 pub use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 
+pub use bevy_prototype_lyon::plugin::ShapePlugin as LyonPlugin;
+
 mod merger;
 pub use merger::*;
 
@@ -35,6 +37,16 @@ impl Plugin for DebugPlugin {
         app.add_system(debug_draw_item_things_system.system())
             .add_system(debug_draw_belt_system.system())
             .add_system(debug_belt_path_place_random_items_system.system());
+    }
+}
+
+pub struct MapPlugin;
+impl Plugin for MapPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app
+            .insert_resource(MapCache::default())
+            .add_system(map_pos_apply_transform_system.system())
+            .add_system(map_cache_system.system());
     }
 }
 
