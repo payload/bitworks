@@ -39,9 +39,9 @@ fn setup(mut cmds: Commands) {
     for simple in vec![
         Simple::ItemGenerator(map_pos(-2, 0), E),
         Simple::Belt(map_pos(-1, 0), W, E),
-        Simple::Belt(map_pos(0, 0), W, E),
-        Simple::Belt(map_pos(1, 0), W, E),
-        Simple::NullSink(map_pos(2, 0), W),
+        //Simple::Belt(map_pos(0, 0), W, E),
+        //Simple::Belt(map_pos(1, 0), W, E),
+        Simple::NullSink(map_pos(0, 0), W),
     ] {
         cmds.spawn_bundle((simple,));
     }
@@ -106,8 +106,9 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
             }
             Simple::NullSink(pos, in_dir) => {
                 cmds.insert(pos.clone())
-                    .insert(NullSink::new(&[]))
-                    .insert(SingleInput(map_pos(0,0), *in_dir, entity))
+                    .insert(NullSink::new(&[entity]))
+                    .insert(ItemInput::new(2))
+                    .insert(SingleInput(map_pos(0, 0), *in_dir, entity))
                     .insert_bundle(lyon().circle(16.0).outlined(Color::RED, Color::BLACK, 4.0));
             }
         }
@@ -150,7 +151,12 @@ fn input_output_hookup_system(
 
 fn output_item_stuff_hookup_system(
     mut entities: Query<
-        (Entity, &SingleOutput, Option<&mut RandomItemGenerator>, Option<&mut Belt>),
+        (
+            Entity,
+            &SingleOutput,
+            Option<&mut RandomItemGenerator>,
+            Option<&mut Belt>,
+        ),
         Changed<SingleOutput>,
     >,
 ) {
