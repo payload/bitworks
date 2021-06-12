@@ -43,10 +43,15 @@ impl Plugin for DebugPlugin {
 pub struct MapPlugin;
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app
-            .insert_resource(MapCache::default())
-            .add_system(map_pos_apply_transform_system.system())
-            .add_system(map_cache_system.system());
+        app.insert_resource(MapCache::default())
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                map_pos_apply_transform_system.system(),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                map_cache_system.system().label("map_cache"),
+            );
     }
 }
 

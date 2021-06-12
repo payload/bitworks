@@ -1,5 +1,7 @@
 use bevy::{math::vec2, prelude::*, utils::HashMap};
 
+use crate::CompassDir;
+
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct MapPos {
     pub x: i32,
@@ -18,6 +20,30 @@ impl MapPos {
 
     pub fn vec2(&self) -> Vec2 {
         vec2(self.x as f32, self.y as f32)
+    }
+
+    pub fn add_xy(&self, x: i32, y: i32) -> Self {
+        Self {
+            x: self.x + x,
+            y: self.y + y,
+        }
+    }
+
+    pub fn step(&self, dir: CompassDir) -> Self {
+        match dir {
+            CompassDir::N => self.add_xy(0, -1),
+            CompassDir::E => self.add_xy(1, 0),
+            CompassDir::S => self.add_xy(0, 1),
+            CompassDir::W => self.add_xy(-1, 0),
+        }
+    }
+}
+
+impl std::ops::Add for MapPos {
+    type Output = MapPos;
+
+    fn add(self, rhs: Self) -> Self::Output {
+        self.add_xy(rhs.x, rhs.y)
     }
 }
 
@@ -38,11 +64,10 @@ impl MapCache {
     }
 }
 
-pub fn map_cache_system(
-    mut map: ResMut<MapCache>,
-    pos: Query<(Entity, &MapPos, &String), Added<MapPos>>,
-) {
-    for (e, pos, _name) in pos.iter() {
+pub fn map_cache_system(mut map: ResMut<MapCache>, pos: Query<(Entity, &MapPos), Added<MapPos>>) {
+    for (e, pos) in pos.iter() {
+        println!("map   {:?} at {:?}", e, pos);
+
         map.entity_cache.insert(e, (*pos).clone());
         map.pos_cache.insert(pos.clone(), e);
     }
@@ -56,7 +81,9 @@ pub fn _map_cache_gc_system(mut map: ResMut<MapCache>, removed: RemovedComponent
     }
 }
 
-pub fn map_pos_apply_transform_system(mut query: Query<(&MapPos, &mut Transform), Changed<MapPos>>) {
+pub fn map_pos_apply_transform_system(
+    mut query: Query<(&MapPos, &mut Transform), Changed<MapPos>>,
+) {
     for (pos, mut transform) in query.iter_mut() {
         pos.apply(32.0, &mut transform);
     }

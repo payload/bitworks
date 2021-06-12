@@ -9,11 +9,16 @@ pub fn belts_example_app() -> AppBuilder {
     let mut app = App::build();
     app.add_plugins(DefaultPlugins)
         .add_plugin(DebugLinesPlugin)
+        .add_plugin(DebugPlugin)
         .add_plugin(BeltPlugin)
         .add_plugin(MapPlugin)
         .add_plugin(LyonPlugin)
         .add_system(exit_on_esc_system.system())
-        .add_system(simple_spawner_system.system())
+        .add_system_to_stage(CoreStage::First, simple_spawner_system.system())
+        .add_system_to_stage(
+            CoreStage::PreUpdate,
+            input_output_hookup_system.system().after("map_cache"),
+        )
         .add_startup_system(setup.system());
     app
 }
@@ -45,19 +50,25 @@ enum Simple {
     NullSink(MapPos, CompassDir),
 }
 
+struct SingleInput(MapPos, CompassDir, Entity);
+struct SingleOutput(MapPos, CompassDir, Option<Entity>);
+
 fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut cmds: Commands) {
     for (entity, simple) in simples.iter() {
         let mut cmds = cmds.entity(entity);
         cmds.remove::<Simple>();
 
+        println!("spawn {:?} as {:?}", entity, simple);
+
         match simple {
-            Simple::ItemGenerator(pos, _out_dir) => {
-                cmds.insert(pos.clone())
+            Simple::ItemGenerator(pos, out_dir) => {
+                cmds.insert(*pos)
                     .insert(RandomItemGenerator {
                         cooldown: 1.0,
                         next_time: 1.0,
                         output: None,
                     })
+                    .insert(SingleOutput(map_pos(0, 0), *out_dir, None))
                     .insert_bundle(lyon().polygon(6, 16.0).outlined(
                         Color::TEAL,
                         Color::BLACK,
@@ -68,12 +79,18 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                 let pos_vec = pos.vec2();
                 let in_vec = 0.5 * in_dir.vec2();
                 let out_vec = 0.5 * out_dir.vec2();
+                let start = 32.0 * vec3(pos_vec.x + in_vec.x, pos_vec.y + in_vec.y, 0.0);
+                let end = 32.0 * vec3(pos_vec.x + out_vec.x, pos_vec.y + out_vec.y, 0.0);
+                let segment = BeltSegment { start, end };
+                let belt = cmds.id();
 
-                cmds.insert(pos.clone())
-                    .insert(BeltSegment {
-                        start: 32.0 * vec3(pos_vec.x + in_vec.x, pos_vec.y + in_vec.y, 0.0),
-                        end: 32.0 * vec3(pos_vec.x + out_vec.x, pos_vec.y + out_vec.y, 0.0),
+                cmds.insert(*pos)
+                    .insert(Belt {
+                        segments: vec![segment],
+                        items: vec![],
+                        output: None,
                     })
+                    .insert(SingleInput(map_pos(0, 0), *in_dir, belt))
                     .insert_bundle(lyon().polygon(4, 16.0).outlined(
                         Color::GRAY,
                         Color::BLACK,
@@ -84,6 +101,40 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                 cmds.insert(pos.clone())
                     .insert(NullSink::new(&[]))
                     .insert_bundle(lyon().circle(16.0).outlined(Color::RED, Color::BLACK, 4.0));
+            }
+        }
+    }
+}
+
+fn input_output_hookup_system(
+    inputs: Query<(&MapPos, &SingleInput)>,
+    mut outputs: Query<(Entity, &MapPos, &mut SingleOutput)>,
+    map: Res<MapCache>,
+) {
+    for (o_entity, pos, mut output) in outputs.iter_mut() {
+        if output.2 == None {
+            let SingleOutput(o_pos, o_dir, _) = &*output;
+            let other_pos = (*pos + *o_pos).step(*o_dir);
+
+            if let Some(input_entity) = map.at(&other_pos) {
+                if let Some(input) = inputs.get_component::<SingleInput>(input_entity).ok() {
+                    let SingleInput(_, i_dir, i_entity) = input;
+
+                    if *i_dir == o_dir.opposite() {
+                        output.2 = Some(*i_entity);
+
+                        println!("hook up {:?} to {:?}", o_entity, i_entity);
+                    } else {
+                        eprintln!(
+                            "check {:?} wrong directions {:?} to {:?}",
+                            o_entity, o_dir, i_dir
+                        );
+                    }
+                } else {
+                    eprintln!("check {:?} no single input at {:?}", o_entity, other_pos);
+                }
+            } else {
+                eprintln!("check {:?} none at pos {:?}", o_entity, other_pos);
             }
         }
     }

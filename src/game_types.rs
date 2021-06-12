@@ -1,11 +1,19 @@
 use std::slice::{Iter, IterMut};
 
-use bevy::{math::{vec2, vec3}, prelude::*};
+use bevy::{
+    math::{vec2, vec3},
+    prelude::*,
+};
 
 ///////////////////////////////////////////////////////////////////////////////
 
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum CompassDir { N, E, S, W }
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
+pub enum CompassDir {
+    N,
+    E,
+    S,
+    W,
+}
 
 impl CompassDir {
     pub fn opposite(&self) -> Self {
