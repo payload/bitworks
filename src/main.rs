@@ -17,7 +17,14 @@ pub fn belts_example_app() -> AppBuilder {
         .add_system_to_stage(CoreStage::First, simple_spawner_system.system())
         .add_system_to_stage(
             CoreStage::PreUpdate,
-            input_output_hookup_system.system().after("map_cache"),
+            input_output_hookup_system
+                .system()
+                .after("map_cache")
+                .label("io_hookup"),
+        )
+        .add_system_to_stage(
+            CoreStage::PreUpdate,
+            output_item_stuff_hookup_system.system().after("io_hookup"),
         )
         .add_startup_system(setup.system());
     app
@@ -82,7 +89,6 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                 let start = 32.0 * vec3(pos_vec.x + in_vec.x, pos_vec.y + in_vec.y, 0.0);
                 let end = 32.0 * vec3(pos_vec.x + out_vec.x, pos_vec.y + out_vec.y, 0.0);
                 let segment = BeltSegment { start, end };
-                let belt = cmds.id();
 
                 cmds.insert(*pos)
                     .insert(Belt {
@@ -90,16 +96,18 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                         items: vec![],
                         output: None,
                     })
-                    .insert(SingleInput(map_pos(0, 0), *in_dir, belt))
+                    .insert(SingleInput(map_pos(0, 0), *in_dir, entity))
+                    .insert(SingleOutput(map_pos(0, 0), *out_dir, None))
                     .insert_bundle(lyon().polygon(4, 16.0).outlined(
                         Color::GRAY,
                         Color::BLACK,
                         4.0,
                     ));
             }
-            Simple::NullSink(pos, _in_dir) => {
+            Simple::NullSink(pos, in_dir) => {
                 cmds.insert(pos.clone())
                     .insert(NullSink::new(&[]))
+                    .insert(SingleInput(map_pos(0,0), *in_dir, entity))
                     .insert_bundle(lyon().circle(16.0).outlined(Color::RED, Color::BLACK, 4.0));
             }
         }
@@ -136,6 +144,27 @@ fn input_output_hookup_system(
             } else {
                 eprintln!("check {:?} none at pos {:?}", o_entity, other_pos);
             }
+        }
+    }
+}
+
+fn output_item_stuff_hookup_system(
+    mut entities: Query<
+        (Entity, &SingleOutput, Option<&mut RandomItemGenerator>, Option<&mut Belt>),
+        Changed<SingleOutput>,
+    >,
+) {
+    for (entity, output, item_gen, belt) in entities.iter_mut() {
+        match (item_gen, belt) {
+            (Some(mut item_gen), None) => {
+                item_gen.output = output.2;
+                println!("output  {:?} set to {:?}", entity, item_gen.output);
+            }
+            (None, Some(mut belt)) => {
+                belt.output = output.2;
+                println!("output  {:?} set to {:?}", entity, belt.output);
+            }
+            _ => {}
         }
     }
 }
