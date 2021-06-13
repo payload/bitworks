@@ -19,6 +19,8 @@ impl BeltInput {
 ///////////////////////////////////////////////////////////////////////////////
 
 pub struct ItemInput {
+    space: f32,
+    space_padding: bool,
     items: Vec<BeltItem>,
     capacity: usize,
 }
@@ -26,12 +28,14 @@ pub struct ItemInput {
 impl ItemInput {
     pub fn new(capacity: usize) -> Self {
         Self {
+            space: f32::INFINITY,
+            space_padding: true,
             capacity,
             items: Vec::new(),
         }
     }
 
-    pub fn space(&self) -> usize {
+    pub fn has_capacity(&self) -> usize {
         self.capacity.saturating_sub(self.items.len())
     }
 
@@ -242,7 +246,7 @@ pub fn belt_advance_items_system(
                 }
                 NextStop::Output => {
                     if belt.items[i].pos > total_length
-                        && push_item_to_input(&mut *belt, item_input.as_mut().unwrap())
+                        && push_from_belt_item_to_input(&mut *belt, item_input.as_mut().unwrap())
                     {
                         // popped one
                     } else {
@@ -254,9 +258,9 @@ pub fn belt_advance_items_system(
     }
 }
 
-fn push_item_to_input(belt: &mut Belt, input: &mut ItemInput) -> bool {
+fn push_from_belt_item_to_input(belt: &mut Belt, input: &mut ItemInput) -> bool {
     if !belt.items.is_empty() {
-        if input.space() > 0 {
+        if input.has_capacity() > 0 {
             let mut item = belt.items.pop().unwrap();
             item.pos -= belt.total_length();
             input.items.insert(0, item);
@@ -270,8 +274,41 @@ fn push_item_to_input(belt: &mut Belt, input: &mut ItemInput) -> bool {
     }
 }
 
+pub fn try_push_item_to_input(item: &mut BeltItem, input: &mut ItemInput) -> bool {
+    let size = if input.space_padding {
+        item.padding()
+    } else {
+        0.0
+    };
+
+    if size <= input.space && input.has_capacity() > 0 {
+        item.pos = item.pos.min(input.space - size);
+        input.items.insert(0, item.clone());
+        true
+    } else {
+        item.pos = 0.0;
+        false
+
+    }
+}
+
 enum NextStop {
     End,
     Item(f32),
     Output,
+}
+
+pub fn belt_input_system(mut belts: Query<(Entity, &mut Belt, &mut ItemInput)>) {
+    // transfer items from ItemInput to belt and update ItemInput space
+    for (_, mut belt, mut item_input) in belts.iter_mut() {
+        for item in item_input.items.drain(0..).rev() {
+            belt.items.insert(0, item);
+        }
+
+        item_input.space = if let Some(first) = belt.items.first() {
+            first.pos - first.padding()
+        } else {
+            belt.total_length()
+        };
+    }
 }

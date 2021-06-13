@@ -27,7 +27,8 @@ impl Plugin for BeltPlugin {
         app.add_system(belt_advance_items_system.system())
             .add_system(random_item_generator_system.system())
             .add_system(null_sink_system.system())
-            .add_system(merger_system.system());
+            .add_system(merger_system.system())
+            .add_system_to_stage(CoreStage::PreUpdate, belt_input_system.system());
     }
 }
 

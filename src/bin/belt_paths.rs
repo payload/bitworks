@@ -59,44 +59,56 @@ fn setup(mut cmds: Commands) {
 }
 
 fn belt1() -> impl Bundle {
-    (Belt {
-        segments: vec![
-            BeltSegment::straight(-30, 30, 0, 30),
-            BeltSegment::straight(0, 30, 30, 50),
-        ],
-        items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
-        output: None,
-    },)
+    (
+        Belt {
+            segments: vec![
+                BeltSegment::straight(-30, 30, 0, 30),
+                BeltSegment::straight(0, 30, 30, 50),
+            ],
+            items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
+            output: None,
+        },
+        ItemInput::new(2),
+    )
 }
 
 fn belt2(output: Entity) -> impl Bundle {
-    (Belt {
-        segments: vec![
-            BeltSegment::straight(-30, 10, 0, 0),
-            BeltSegment::straight(0, 0, 30, -20),
-        ],
-        items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
-        output: Some(output),
-    },)
+    (
+        Belt {
+            segments: vec![
+                BeltSegment::straight(-30, 10, 0, 0),
+                BeltSegment::straight(0, 0, 30, -20),
+            ],
+            items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
+            output: Some(output),
+        },
+        ItemInput::new(2),
+    )
 }
 
 fn belt3(output: Entity) -> impl Bundle {
-    (Belt {
-        segments: vec![
-            BeltSegment::straight(-30, -30, 0, -30),
-            BeltSegment::straight(0, -30, 30, -30),
-        ],
-        items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
-        output: Some(output),
-    },)
+    (
+        Belt {
+            segments: vec![
+                BeltSegment::straight(-30, -30, 0, -30),
+                BeltSegment::straight(0, -30, 30, -30),
+            ],
+            items: vec![BeltItem::red(0.0), BeltItem::green(30.0)],
+            output: Some(output),
+        },
+        ItemInput::new(2),
+    )
 }
 
 fn belt(x: i32, y: i32, output: Entity) -> impl Bundle {
-    (Belt {
-        segments: vec![BeltSegment::straight(x, y, x + 30, y)],
-        items: vec![],
-        output: Some(output),
-    },)
+    (
+        Belt {
+            segments: vec![BeltSegment::straight(x, y, x + 30, y)],
+            items: vec![],
+            output: Some(output),
+        },
+        ItemInput::new(2),
+    )
 }
 
 fn item_sink(pos: Vec2) -> impl Bundle {

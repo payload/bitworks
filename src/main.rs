@@ -96,6 +96,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                         items: vec![],
                         output: None,
                     })
+                    .insert(ItemInput::new(2))
                     .insert(SingleInput(map_pos(0, 0), *in_dir, entity))
                     .insert(SingleOutput(map_pos(0, 0), *out_dir, None))
                     .insert_bundle(lyon().polygon(4, 16.0).outlined(
