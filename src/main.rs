@@ -245,25 +245,24 @@ fn input_output_hookup_system(
         //      this loop uses an index range to not trigger a mut deref of Mut<> prematurely
         for i in 0..outputs.outputs.len() {
             let output = &outputs.outputs[i];
+            let other_pos = (*pos + output.pos).step(output.dir);
 
-            if output.entity == None {
-                let other_pos = (*pos + output.pos).step(output.dir);
+            if output.entity.is_some() {
+                continue;
+            } else if let Some(input_entity) = map.at(&other_pos) {
+                if let Some(input) = inputs.get_component::<SingleInput>(input_entity).ok() {
+                    if input.dir == output.dir.opposite() {
+                        outputs.outputs[i].entity = Some(input_entity);
 
-                if let Some(input_entity) = map.at(&other_pos) {
-                    if let Some(input) = inputs.get_component::<SingleInput>(input_entity).ok() {
-                        if input.dir == output.dir.opposite() {
-                            outputs.outputs[i].entity = Some(input_entity);
-
-                            debug.hookup.push((o_entity, input_entity));
-                        } else {
-                            debug.wrong_dir.push((o_entity, output.dir, input.dir));
-                        }
+                        debug.hookup.push((o_entity, input_entity));
                     } else {
-                        debug.no_input.push((o_entity, other_pos));
+                        debug.wrong_dir.push((o_entity, output.dir, input.dir));
                     }
                 } else {
-                    debug.none_at.push((o_entity, other_pos));
+                    debug.no_input.push((o_entity, other_pos));
                 }
+            } else {
+                debug.none_at.push((o_entity, other_pos));
             }
         }
     }
