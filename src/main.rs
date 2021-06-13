@@ -97,7 +97,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                         next_time: 1.0,
                         output: None,
                     })
-                    .insert(SingleOutput(map_pos(0, 0), *out_dir, None))
+                    .insert(output((0, 0), *out_dir))
                     .insert_bundle(lyon().polygon(6, 16.0).outlined(
                         Color::TEAL,
                         Color::BLACK,
@@ -121,7 +121,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                     })
                     .insert(ItemInput::new(2))
                     .insert(SingleInput(map_pos(0, 0), *in_dir))
-                    .insert(SingleOutput(map_pos(0, 0), *out_dir, None))
+                    .insert(output((0, 0), *out_dir))
                     .insert_bundle(lyon().polygon(4, 16.0).outlined(
                         Color::GRAY,
                         Color::BLACK,
@@ -168,7 +168,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                         inputs: vec![in1, in2],
                         outputs: vec![],
                     })
-                    .insert(MultipleOutputs::new(&[
+                    .insert(outputs(&[
                         (map_pos(0, 0), out_dir),
                         (map_pos(0, -1), out_dir),
                     ]))
@@ -275,6 +275,16 @@ impl MultipleOutputs {
     }
 }
 
+fn output<P: Into<MapPos>>(pos: P, dir: CompassDir) -> MultipleOutputs {
+    MultipleOutputs {
+        outputs: vec![SingleOutput(pos.into(), dir, None)],
+    }
+}
+
+fn outputs(entries: &[(MapPos, CompassDir)]) -> MultipleOutputs {
+    MultipleOutputs::new(entries)
+}
+
 fn input_output_hookup_system2(
     inputs: Query<(&MapPos, &SingleInput)>,
     mut outputs: Query<(Entity, &MapPos, &mut MultipleOutputs)>,
@@ -328,22 +338,33 @@ fn input_output_hookup_system2(
 
 fn output_item_stuff_hookup_system2(
     mut entities: Query<
-        ((Entity, &MultipleOutputs), (Option<&mut Merger>,)),
+        (
+            (Entity, &MultipleOutputs),
+            (
+                Option<&mut Merger>,
+                Option<&mut RandomItemGenerator>,
+                Option<&mut Belt>,
+            ),
+        ),
         Changed<MultipleOutputs>,
     >,
 ) {
     for ((entity, outputs), it) in entities.iter_mut() {
         if let Some(mut merger) = it.0 {
-            merger.outputs.resize(outputs.outputs.len(), Entity::new(0));
-
-            if let Some(e) = outputs.outputs[0].2 {
-                merger.outputs[0] = e;
+            let len = outputs.outputs.len();
+            merger.outputs.resize(len, Entity::new(0));
+            for i in 0..len {
+                if let Some(e) = outputs.outputs[i].2 {
+                    merger.outputs[i] = e;
+                }
             }
-            if let Some(e) = outputs.outputs[1].2 {
-                merger.outputs[1] = e;
-            }
-
-            println!("merger output  {:?} set to {:?}", entity, merger.outputs);
+            println!("output  {:?} set to {:?}", entity, merger.outputs);
+        } else if let Some(mut item_gen) = it.1 {
+            item_gen.output = outputs.outputs[0].2;
+            println!("output  {:?} set to {:?}", entity, item_gen.output);
+        } else if let Some(mut belt) = it.2 {
+            belt.output = outputs.outputs[0].2;
+            println!("output  {:?} set to {:?}", entity, belt.output);
         }
     }
 }

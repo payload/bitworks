@@ -39,6 +39,12 @@ impl MapPos {
     }
 }
 
+impl From<(i32, i32)> for MapPos {
+    fn from((x, y): (i32, i32)) -> Self {
+        Self { x, y }
+    }
+}
+
 impl std::ops::Add for MapPos {
     type Output = MapPos;
 
