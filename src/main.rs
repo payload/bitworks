@@ -1,4 +1,5 @@
-use bevy::{math::vec3, prelude::*};
+use bevy::{math::vec3, prelude::*, utils::HashSet};
+
 use bitworks::*;
 
 fn main() {
@@ -285,12 +286,38 @@ fn outputs(entries: &[(MapPos, CompassDir)]) -> MultipleOutputs {
     MultipleOutputs::new(entries)
 }
 
+#[derive(Default)]
+struct DebugIOHookupSystem {
+    hookup: Vec<(Entity, Entity)>,
+    wrong_dir: Vec<(Entity, CompassDir, CompassDir)>,
+    no_input: Vec<(Entity, MapPos)>,
+    none_at: Vec<(Entity, MapPos)>,
+    filter_set: HashSet<Entity>,
+}
+
+impl DebugIOHookupSystem {
+    fn print(&mut self) {
+        let set = &mut self.filter_set;
+        for it in self.hookup.iter().filter(|e| set.insert(e.0)) {
+            eprintln!("check {:?} hookup {:?}", it.0, it.1);
+        }
+        for it in self.wrong_dir.iter().filter(|e| set.insert(e.0)) {
+            eprintln!("check {:?} wrong dir {:?} to {:?}", it.0, it.1, it.2);
+        }
+        for it in self.no_input.iter().filter(|e| set.insert(e.0)) {
+            eprintln!("check {:?} no input {:?}", it.0, it.1);
+        }
+        for it in self.none_at.iter().filter(|e| set.insert(e.0)) {
+            eprintln!("check {:?} none at {:?}", it.0, it.1);
+        }
+    }
+}
+
 fn input_output_hookup_system2(
     inputs: Query<(&MapPos, &SingleInput)>,
     mut outputs: Query<(Entity, &MapPos, &mut MultipleOutputs)>,
     map: Res<MapCache>,
-    scream: Query<&Scream>,
-    mut cmds: Commands,
+    mut debug: Local<DebugIOHookupSystem>,
 ) {
     for (o_entity, pos, mut outputs) in outputs.iter_mut() {
         // NOTE to make sure not to trigger unnecessary change detection
@@ -309,31 +336,21 @@ fn input_output_hookup_system2(
                         if *i_dir == o_dir.opposite() {
                             outputs.outputs[i].2 = Some(input_entity);
 
-                            println!("hook up {:?} to {:?}", o_entity, input_entity);
+                            debug.hookup.push((o_entity, input_entity));
                         } else {
-                            if scream.get(o_entity).is_err() {
-                                eprintln!(
-                                    "check {:?} wrong directions {:?} to {:?}",
-                                    o_entity, o_dir, i_dir
-                                );
-                                cmds.entity(o_entity).insert(Scream);
-                            }
+                            debug.wrong_dir.push((o_entity, *o_dir, *i_dir));
                         }
                     } else {
-                        if scream.get(o_entity).is_err() {
-                            eprintln!("check {:?} no single input at {:?}", o_entity, other_pos);
-                            cmds.entity(o_entity).insert(Scream);
-                        }
+                        debug.no_input.push((o_entity, other_pos));
                     }
                 } else {
-                    if scream.get(o_entity).is_err() {
-                        eprintln!("check {:?} none at pos {:?}", o_entity, other_pos);
-                        cmds.entity(o_entity).insert(Scream);
-                    }
+                    debug.none_at.push((o_entity, other_pos));
                 }
             }
         }
     }
+
+    debug.print();
 }
 
 fn output_item_stuff_hookup_system2(
