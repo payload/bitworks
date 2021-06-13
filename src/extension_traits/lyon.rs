@@ -11,6 +11,7 @@ pub trait GeometryBuilderExt {
     fn circle(self, radius: f32) -> Self;
     fn outlined(self, fill: Color, stroke: Color, width: f32) -> ShapeBundle;
     fn outlined_pos(self, fill: Color, stroke: Color, width: f32, vec: Vec2) -> ShapeBundle;
+    fn outlined_pos3(self, fill: Color, stroke: Color, width: f32, vec: Vec3) -> ShapeBundle;
 }
 
 impl GeometryBuilderExt for GeometryBuilder {
@@ -41,6 +42,17 @@ impl GeometryBuilderExt for GeometryBuilder {
                 outline_options: StrokeOptions::default().with_line_width(width),
             },
             Transform::from_translation(vec.extend(0.0)),
+        )
+    }
+
+    fn outlined_pos3(self, fill: Color, stroke: Color, width: f32, vec: Vec3) -> ShapeBundle {
+        self.build(
+            ShapeColors::outlined(fill, stroke),
+            DrawMode::Outlined {
+                fill_options: FillOptions::default(),
+                outline_options: StrokeOptions::default().with_line_width(width),
+            },
+            Transform::from_translation(vec),
         )
     }
 

@@ -1,5 +1,6 @@
 use bevy::{math::vec3, prelude::*, utils::HashSet};
 
+use bevy_prototype_lyon::{entity::ShapeBundle, prelude::ShapeColors};
 use bitworks::*;
 
 fn main() {
@@ -27,6 +28,7 @@ pub fn belts_example_app() -> AppBuilder {
             CoreStage::PreUpdate,
             output_item_stuff_hookup_system.system().after("io_hookup"),
         )
+        .add_system_to_stage(CoreStage::Update, draw_belt_system.system())
         .add_startup_system(setup.system());
     app
 }
@@ -299,6 +301,47 @@ fn output_item_stuff_hookup_system(
         } else if let Some(mut belt) = it.2 {
             belt.output = outputs.outputs[0].entity;
             println!("output  {:?} set to {:?}", entity, belt.output);
+        }
+    }
+}
+
+//////
+
+#[derive(Default)]
+struct DrawItems {
+    entities: Vec<Entity>,
+}
+
+fn draw_belt_system(
+    belts: Query<&Belt>,
+    mut shapes: Query<(&mut Transform, &mut ShapeColors)>,
+    mut draw_items: Local<DrawItems>,
+    mut cmds: Commands,
+) {
+    let mut index = 0;
+
+    for belt in belts.iter() {
+        for item in belt.items() {
+            let item: &BeltItem = item;
+            let (pos, dir) = belt.location_on_path(item.pos) as (Vec3, Vec3);
+
+            if draw_items.entities.len() < index + 1 {
+                let entity = cmds
+                    .spawn_bundle(lyon().circle(2.0).outlined_pos3(
+                        item.color(),
+                        Color::BLACK,
+                        1.0,
+                        pos.truncate().extend(5.0),
+                    ))
+                    .id();
+                draw_items.entities.push(entity);
+            } else if let Ok((mut transform, mut colors)) = shapes.get_mut(draw_items.entities[index]) {
+                transform.translation.x = pos.x;
+                transform.translation.y = pos.y;
+                colors.main = item.color();
+            }
+
+            index += 1;
         }
     }
 }
