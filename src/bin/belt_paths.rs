@@ -28,6 +28,17 @@ fn setup(mut cmds: Commands) {
     let belt3 = cmds.spawn_bundle(belt3(belt3_sink)).id();
     cmds.spawn_bundle(item_generator(belt3, vec2(-30.0, -30.0), 0.0));
 
+    item_generator(
+        belt(
+            -30,
+            -55,
+            belt(0, -55, item_sink(vec2(30.0, -55.0)).spawn(cmds)).spawn(cmds),
+        )
+        .spawn(cmds),
+        vec2(-30.0, -55.0),
+        0.0,
+    ).spawn(cmds);
+
     {
         let in1 = (ItemInput::new(1), vec2(0.0, -40.0)).spawn(cmds);
         let in2 = (ItemInput::new(1), vec2(0.0, -45.0)).spawn(cmds);
