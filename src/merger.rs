@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::game_types::*;
+use crate::{Belt, ItemInput};
 
 pub struct Merger {
     pub inputs: Vec<Entity>,

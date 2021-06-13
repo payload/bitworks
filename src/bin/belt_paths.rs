@@ -9,6 +9,7 @@ pub fn belts_example_app() -> AppBuilder {
     let mut app = App::build();
     app.add_plugins(DefaultPlugins)
         .add_plugin(DebugLinesPlugin)
+        .add_plugin(DebugPlugin)
         .add_plugin(BeltPlugin)
         .add_system(exit_on_esc_system.system())
         .add_startup_system(setup.system());

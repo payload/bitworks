@@ -1,5 +1,6 @@
-use crate::game_types::ItemInput;
 use bevy::prelude::*;
+
+use crate::ItemInput;
 
 pub struct NullSink {
     inputs: Vec<Entity>,

@@ -1,5 +1,6 @@
-use crate::game_types::*;
 use bevy::prelude::*;
+
+use crate::{Belt, BeltItem, Item};
 
 pub struct RandomItemGenerator {
     pub next_time: f64,
