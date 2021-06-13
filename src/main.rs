@@ -54,13 +54,17 @@ fn setup(mut cmds: Commands) {
         Simple::ItemGenerator(map_pos(-3, 2), E),
         Simple::Belt(map_pos(-2, 2), W, E),
         Simple::Belt(map_pos(-1, 2), W, E),
+        //
         Simple::ItemGenerator(map_pos(-3, 0), E),
         Simple::Belt(map_pos(-2, 0), W, N),
         Simple::Belt(map_pos(-2, 1), S, E),
+        Simple::Belt(map_pos(-1, 1), W, E),
+        //
+        Simple::Merger2x2(map_pos(0, 2), E),
+        //
         Simple::Belt(map_pos(1, 2), W, E),
         Simple::Belt(map_pos(1, 1), W, E),
         Simple::NullSink(map_pos(2, 2), W),
-        Simple::Merger2x2(map_pos(0, 2), E),
     ] {
         cmds.spawn_bundle((simple,));
     }
@@ -279,7 +283,11 @@ fn input_output_hookup_system2(
     mut cmds: Commands,
 ) {
     for (o_entity, pos, mut outputs) in outputs.iter_mut() {
-        for output in outputs.outputs.iter() {
+        // NOTE to make sure not to trigger unnecessary change detection
+        //      this loop uses an index range to not trigger a mut deref of Mut<> prematurely
+        for i in 0..outputs.outputs.len() {
+            let output = &outputs.outputs[i];
+
             if output.2 == None {
                 let SingleOutput(o_pos, o_dir, _) = &*output;
                 let other_pos = (*pos + *o_pos).step(*o_dir);
@@ -289,7 +297,7 @@ fn input_output_hookup_system2(
                         let SingleInput(_, i_dir) = input;
 
                         if *i_dir == o_dir.opposite() {
-                            output.2 = Some(input_entity);
+                            outputs.outputs[i].2 = Some(input_entity);
 
                             println!("hook up {:?} to {:?}", o_entity, input_entity);
                         } else {
