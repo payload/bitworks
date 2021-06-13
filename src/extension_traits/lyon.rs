@@ -10,6 +10,7 @@ pub trait GeometryBuilderExt {
     fn rectangle(self, width: f32, height: f32) -> Self;
     fn circle(self, radius: f32) -> Self;
     fn outlined(self, fill: Color, stroke: Color, width: f32) -> ShapeBundle;
+    fn outlined_pos(self, fill: Color, stroke: Color, width: f32, vec: Vec2) -> ShapeBundle;
 }
 
 impl GeometryBuilderExt for GeometryBuilder {
@@ -32,6 +33,17 @@ impl GeometryBuilderExt for GeometryBuilder {
         )
     }
 
+    fn outlined_pos(self, fill: Color, stroke: Color, width: f32, vec: Vec2) -> ShapeBundle {
+        self.build(
+            ShapeColors::outlined(fill, stroke),
+            DrawMode::Outlined {
+                fill_options: FillOptions::default(),
+                outline_options: StrokeOptions::default().with_line_width(width),
+            },
+            Transform::from_translation(vec.extend(0.0)),
+        )
+    }
+
     fn polygon(mut self, sides: usize, radius: f32) -> Self {
         self.add(&RegularPolygon {
             center: Vec2::ZERO,
@@ -45,7 +57,7 @@ impl GeometryBuilderExt for GeometryBuilder {
         self.add(&Rectangle {
             width,
             height,
-            origin: RectangleOrigin::Center,
+            origin: RectangleOrigin::TopLeft,
         });
         self
     }

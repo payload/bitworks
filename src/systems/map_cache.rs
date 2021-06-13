@@ -1,6 +1,6 @@
 use bevy::{math::vec2, prelude::*, utils::HashMap};
 
-use crate::CompassDir;
+use crate::{CompassDir, SingleInput};
 
 #[derive(Default, Debug, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct MapPos {
@@ -31,9 +31,9 @@ impl MapPos {
 
     pub fn step(&self, dir: CompassDir) -> Self {
         match dir {
-            CompassDir::N => self.add_xy(0, -1),
+            CompassDir::N => self.add_xy(0, 1),
             CompassDir::E => self.add_xy(1, 0),
-            CompassDir::S => self.add_xy(0, 1),
+            CompassDir::S => self.add_xy(0, -1),
             CompassDir::W => self.add_xy(-1, 0),
         }
     }
@@ -64,7 +64,10 @@ impl MapCache {
     }
 }
 
-pub fn map_cache_system(mut map: ResMut<MapCache>, pos: Query<(Entity, &MapPos), Added<MapPos>>) {
+pub fn map_cache_system(
+    mut map: ResMut<MapCache>,
+    pos: Query<(Entity, &MapPos), (With<SingleInput>, Added<MapPos>)>,
+) {
     for (e, pos) in pos.iter() {
         println!("map   {:?} at {:?}", e, pos);
 

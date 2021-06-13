@@ -5,6 +5,8 @@ use bevy::{
     prelude::*,
 };
 
+use crate::MapPos;
+
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
@@ -49,10 +51,13 @@ impl CompassDir {
     pub fn vec2(&self) -> Vec2 {
         use CompassDir::*;
         match self {
-            N => vec2(0.0, -1.0),
+            N => vec2(0.0, 1.0),
             E => vec2(1.0, 0.0),
-            S => vec2(0.0, 1.0),
+            S => vec2(0.0, -1.0),
             W => vec2(-1.0, 0.0),
         }
     }
 }
+
+pub struct SingleInput(pub MapPos, pub CompassDir);
+pub struct SingleOutput(pub MapPos, pub CompassDir, pub Option<Entity>);

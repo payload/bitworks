@@ -37,7 +37,8 @@ fn setup(mut cmds: Commands) {
         .spawn(cmds),
         vec2(-30.0, -55.0),
         0.0,
-    ).spawn(cmds);
+    )
+    .spawn(cmds);
 
     {
         let in1 = (ItemInput::new(1), vec2(0.0, -40.0)).spawn(cmds);
