@@ -27,20 +27,6 @@ pub fn belts_example_app() -> AppBuilder {
             CoreStage::PreUpdate,
             output_item_stuff_hookup_system.system().after("io_hookup"),
         )
-        .add_system_to_stage(
-            CoreStage::PreUpdate,
-            input_output_hookup_system2
-                .system()
-                .after("map_cache")
-                .after("io_hookup")
-                .label("io_hookup2"),
-        )
-        .add_system_to_stage(
-            CoreStage::PreUpdate,
-            output_item_stuff_hookup_system2
-                .system()
-                .after("io_hookup2"),
-        )
         .add_startup_system(setup.system());
     app
 }
@@ -121,7 +107,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                         output: None,
                     })
                     .insert(ItemInput::new(2))
-                    .insert(SingleInput(map_pos(0, 0), *in_dir))
+                    .insert(input(map_pos(0, 0), *in_dir))
                     .insert(output((0, 0), *out_dir))
                     .insert_bundle(lyon().polygon(4, 16.0).outlined(
                         Color::GRAY,
@@ -134,7 +120,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                     .insert(pos.clone())
                     .insert(NullSink::new(&[entity]))
                     .insert(ItemInput::new(2))
-                    .insert(SingleInput(map_pos(0, 0), *in_dir))
+                    .insert(input(map_pos(0, 0), *in_dir))
                     .insert_bundle(lyon().circle(16.0).outlined(Color::RED, Color::BLACK, 4.0));
             }
             Simple::Merger2x2(pos1, out_dir) => {
@@ -148,13 +134,13 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                     .spawn()
                     .insert(pos1)
                     .insert(ItemInput::new(2))
-                    .insert(SingleInput(map_pos(0, 0), in_dir))
+                    .insert(input(map_pos(0, 0), in_dir))
                     .id();
                 let in2 = cmds
                     .spawn()
                     .insert(pos2)
                     .insert(ItemInput::new(2))
-                    .insert(SingleInput(right, in_dir))
+                    .insert(input(right, in_dir))
                     .id();
                 cmds.entity(entity)
                     .insert(pos1)
@@ -184,79 +170,6 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                             ));
                     });
             }
-        }
-    }
-}
-
-struct Scream;
-
-fn input_output_hookup_system(
-    inputs: Query<(&MapPos, &SingleInput)>,
-    mut outputs: Query<(Entity, &MapPos, &mut SingleOutput)>,
-    map: Res<MapCache>,
-    scream: Query<&Scream>,
-    mut cmds: Commands,
-) {
-    for (o_entity, pos, mut output) in outputs.iter_mut() {
-        if output.2 == None {
-            let SingleOutput(o_pos, o_dir, _) = &*output;
-            let other_pos = (*pos + *o_pos).step(*o_dir);
-
-            if let Some(input_entity) = map.at(&other_pos) {
-                if let Some(input) = inputs.get_component::<SingleInput>(input_entity).ok() {
-                    let SingleInput(_, i_dir) = input;
-
-                    if *i_dir == o_dir.opposite() {
-                        output.2 = Some(input_entity);
-
-                        println!("hook up {:?} to {:?}", o_entity, input_entity);
-                    } else {
-                        if scream.get(o_entity).is_err() {
-                            eprintln!(
-                                "check {:?} wrong directions {:?} to {:?}",
-                                o_entity, o_dir, i_dir
-                            );
-                            cmds.entity(o_entity).insert(Scream);
-                        }
-                    }
-                } else {
-                    if scream.get(o_entity).is_err() {
-                        eprintln!("check {:?} no single input at {:?}", o_entity, other_pos);
-                        cmds.entity(o_entity).insert(Scream);
-                    }
-                }
-            } else {
-                if scream.get(o_entity).is_err() {
-                    eprintln!("check {:?} none at pos {:?}", o_entity, other_pos);
-                    cmds.entity(o_entity).insert(Scream);
-                }
-            }
-        }
-    }
-}
-
-fn output_item_stuff_hookup_system(
-    mut entities: Query<
-        (
-            Entity,
-            &SingleOutput,
-            Option<&mut RandomItemGenerator>,
-            Option<&mut Belt>,
-        ),
-        Changed<SingleOutput>,
-    >,
-) {
-    for (entity, output, item_gen, belt) in entities.iter_mut() {
-        match (item_gen, belt) {
-            (Some(mut item_gen), None) => {
-                item_gen.output = output.2;
-                println!("output  {:?} set to {:?}", entity, item_gen.output);
-            }
-            (None, Some(mut belt)) => {
-                belt.output = output.2;
-                println!("output  {:?} set to {:?}", entity, belt.output);
-            }
-            _ => {}
         }
     }
 }
@@ -313,7 +226,7 @@ impl DebugIOHookupSystem {
     }
 }
 
-fn input_output_hookup_system2(
+fn input_output_hookup_system(
     inputs: Query<(&MapPos, &SingleInput)>,
     mut outputs: Query<(Entity, &MapPos, &mut MultipleOutputs)>,
     map: Res<MapCache>,
@@ -331,14 +244,12 @@ fn input_output_hookup_system2(
 
                 if let Some(input_entity) = map.at(&other_pos) {
                     if let Some(input) = inputs.get_component::<SingleInput>(input_entity).ok() {
-                        let SingleInput(_, i_dir) = input;
-
-                        if *i_dir == o_dir.opposite() {
+                        if input.dir == o_dir.opposite() {
                             outputs.outputs[i].2 = Some(input_entity);
 
                             debug.hookup.push((o_entity, input_entity));
                         } else {
-                            debug.wrong_dir.push((o_entity, *o_dir, *i_dir));
+                            debug.wrong_dir.push((o_entity, *o_dir, input.dir));
                         }
                     } else {
                         debug.no_input.push((o_entity, other_pos));
@@ -353,7 +264,7 @@ fn input_output_hookup_system2(
     debug.print();
 }
 
-fn output_item_stuff_hookup_system2(
+fn output_item_stuff_hookup_system(
     mut entities: Query<
         (
             (Entity, &MultipleOutputs),

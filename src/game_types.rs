@@ -59,5 +59,13 @@ impl CompassDir {
     }
 }
 
-pub struct SingleInput(pub MapPos, pub CompassDir);
+pub struct SingleInput {
+    pub pos: MapPos,
+    pub dir: CompassDir,
+}
+
+pub fn input(pos: MapPos, dir: CompassDir) -> SingleInput {
+    SingleInput { pos, dir }
+}
+
 pub struct SingleOutput(pub MapPos, pub CompassDir, pub Option<Entity>);
