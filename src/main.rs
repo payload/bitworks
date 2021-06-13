@@ -183,7 +183,11 @@ impl MultipleOutputs {
         Self {
             outputs: entries
                 .iter()
-                .map(|(pos, dir)| SingleOutput(*pos, *dir, None))
+                .map(|(pos, dir)| SingleOutput {
+                    pos: *pos,
+                    dir: *dir,
+                    entity: None,
+                })
                 .collect(),
         }
     }
@@ -191,7 +195,11 @@ impl MultipleOutputs {
 
 fn output<P: Into<MapPos>>(pos: P, dir: CompassDir) -> MultipleOutputs {
     MultipleOutputs {
-        outputs: vec![SingleOutput(pos.into(), dir, None)],
+        outputs: vec![SingleOutput {
+            pos: pos.into(),
+            dir,
+            entity: None,
+        }],
     }
 }
 
@@ -238,18 +246,17 @@ fn input_output_hookup_system(
         for i in 0..outputs.outputs.len() {
             let output = &outputs.outputs[i];
 
-            if output.2 == None {
-                let SingleOutput(o_pos, o_dir, _) = &*output;
-                let other_pos = (*pos + *o_pos).step(*o_dir);
+            if output.entity == None {
+                let other_pos = (*pos + output.pos).step(output.dir);
 
                 if let Some(input_entity) = map.at(&other_pos) {
                     if let Some(input) = inputs.get_component::<SingleInput>(input_entity).ok() {
-                        if input.dir == o_dir.opposite() {
-                            outputs.outputs[i].2 = Some(input_entity);
+                        if input.dir == output.dir.opposite() {
+                            outputs.outputs[i].entity = Some(input_entity);
 
                             debug.hookup.push((o_entity, input_entity));
                         } else {
-                            debug.wrong_dir.push((o_entity, *o_dir, input.dir));
+                            debug.wrong_dir.push((o_entity, output.dir, input.dir));
                         }
                     } else {
                         debug.no_input.push((o_entity, other_pos));
@@ -282,16 +289,16 @@ fn output_item_stuff_hookup_system(
             let len = outputs.outputs.len();
             merger.outputs.resize(len, Entity::new(0));
             for i in 0..len {
-                if let Some(e) = outputs.outputs[i].2 {
+                if let Some(e) = outputs.outputs[i].entity {
                     merger.outputs[i] = e;
                 }
             }
             println!("output  {:?} set to {:?}", entity, merger.outputs);
         } else if let Some(mut item_gen) = it.1 {
-            item_gen.output = outputs.outputs[0].2;
+            item_gen.output = outputs.outputs[0].entity;
             println!("output  {:?} set to {:?}", entity, item_gen.output);
         } else if let Some(mut belt) = it.2 {
-            belt.output = outputs.outputs[0].2;
+            belt.output = outputs.outputs[0].entity;
             println!("output  {:?} set to {:?}", entity, belt.output);
         }
     }

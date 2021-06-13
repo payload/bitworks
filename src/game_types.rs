@@ -63,4 +63,8 @@ pub fn input(pos: MapPos, dir: CompassDir) -> SingleInput {
     SingleInput { pos, dir }
 }
 
-pub struct SingleOutput(pub MapPos, pub CompassDir, pub Option<Entity>);
+pub struct SingleOutput {
+    pub pos: MapPos,
+    pub dir: CompassDir,
+    pub entity: Option<Entity>,
+}
