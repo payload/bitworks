@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 
-use crate::{Belt, BeltItem, Item, ItemInput, try_push_item_to_input};
+use crate::{try_push_item_to_input, Belt, BeltItem, Item, ItemInput};
 
 pub struct RandomItemGenerator {
     pub next_time: f64,

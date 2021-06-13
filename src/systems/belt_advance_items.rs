@@ -245,32 +245,22 @@ pub fn belt_advance_items_system(
                     next_stop = NextStop::Item(item.pos - item.padding());
                 }
                 NextStop::Output => {
-                    if belt.items[i].pos > total_length
-                        && push_from_belt_item_to_input(&mut *belt, item_input.as_mut().unwrap())
-                    {
-                        // popped one
+                    if belt.items[i].pos > total_length {
+                        let item_input = item_input.as_mut().unwrap();
+                        belt.items[i].pos -= total_length;
+
+                        if try_push_item_to_input(&mut belt.items[i], item_input) {
+                            belt.items.remove(i);
+                        } else {
+                            belt.items[i].pos = total_length;
+                            next_stop = NextStop::Item(belt.items[i].pos - belt.items[i].padding());
+                        }
                     } else {
                         next_stop = NextStop::Item(belt.items[i].pos - belt.items[i].padding());
                     }
                 }
             }
         }
-    }
-}
-
-fn push_from_belt_item_to_input(belt: &mut Belt, input: &mut ItemInput) -> bool {
-    if !belt.items.is_empty() {
-        if input.has_capacity() > 0 {
-            let mut item = belt.items.pop().unwrap();
-            item.pos -= belt.total_length();
-            input.items.insert(0, item);
-            true
-        } else {
-            belt.items.last_mut().unwrap().pos = belt.total_length();
-            false
-        }
-    } else {
-        false
     }
 }
 
@@ -288,7 +278,6 @@ pub fn try_push_item_to_input(item: &mut BeltItem, input: &mut ItemInput) -> boo
     } else {
         item.pos = 0.0;
         false
-
     }
 }
 
