@@ -39,9 +39,9 @@ fn setup(mut cmds: Commands) {
     for simple in vec![
         Simple::ItemGenerator(map_pos(-2, 0), E),
         Simple::Belt(map_pos(-1, 0), W, E),
-        //Simple::Belt(map_pos(0, 0), W, E),
-        //Simple::Belt(map_pos(1, 0), W, E),
-        Simple::NullSink(map_pos(0, 0), W),
+        Simple::Belt(map_pos(0, 0), W, E),
+        Simple::Belt(map_pos(1, 0), W, E),
+        Simple::NullSink(map_pos(2, 0), W),
     ] {
         cmds.spawn_bundle((simple,));
     }
