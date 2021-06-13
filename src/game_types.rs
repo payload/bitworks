@@ -1,9 +1,4 @@
-use std::slice::{Iter, IterMut};
-
-use bevy::{
-    math::{vec2, vec3},
-    prelude::*,
-};
+use bevy::{math::vec2, prelude::*};
 
 use crate::MapPos;
 

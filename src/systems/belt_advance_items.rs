@@ -4,20 +4,6 @@ use bevy::{math::vec3, prelude::*};
 
 ///////////////////////////////////////////////////////////////////////////////
 
-struct BeltInput {
-    space: f32,
-    items: Vec<BeltItem>,
-    capacity: usize,
-}
-
-impl BeltInput {
-    fn space(&self) -> usize {
-        self.capacity.saturating_sub(self.items.len())
-    }
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
 pub struct ItemInput {
     space: f32,
     space_padding: bool,
