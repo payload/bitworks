@@ -101,13 +101,6 @@ pub enum Item {
 }
 
 impl Item {
-    pub fn color(&self) -> Color {
-        match &self {
-            Item::Red => Color::RED,
-            Item::Green => Color::GREEN,
-        }
-    }
-
     pub fn random() -> Self {
         use Item::*;
         let items = [Red, Green];

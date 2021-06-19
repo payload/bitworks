@@ -1,7 +1,8 @@
-use bevy::{math::vec3, prelude::*, utils::HashSet};
+use bevy::{math::vec3, prelude::*, render::mesh::VertexAttributeValues, utils::HashSet};
 
-use bevy_prototype_lyon::{entity::ShapeBundle, prelude::ShapeColors};
+use bevy_prototype_lyon::prelude::Geometry;
 use bitworks::*;
+use lyon_path::{builder::BorderRadii, traits::PathBuilder};
 
 fn main() {
     belts_example_app().run();
@@ -28,6 +29,7 @@ pub fn belts_example_app() -> AppBuilder {
             CoreStage::PreUpdate,
             output_item_stuff_hookup_system.system().after("io_hookup"),
         )
+        // TODO: look up when color changes of shapes can happen
         .add_system_to_stage(CoreStage::Update, draw_belt_system.system())
         .add_startup_system(setup.system());
     app
@@ -314,34 +316,58 @@ struct DrawItems {
 
 fn draw_belt_system(
     belts: Query<&Belt>,
-    mut shapes: Query<(&mut Transform, &mut ShapeColors)>,
+    mut shapes: Query<(&mut Transform, &mut Handle<Mesh>)>,
     mut draw_items: Local<DrawItems>,
     mut cmds: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     let mut index = 0;
 
     for belt in belts.iter() {
         for item in belt.items() {
             let item: &BeltItem = item;
-            let (pos, dir) = belt.location_on_path(item.pos) as (Vec3, Vec3);
+            let (pos, _dir) = belt.location_on_path(item.pos) as (Vec3, Vec3);
 
             if draw_items.entities.len() < index + 1 {
                 let entity = cmds
-                    .spawn_bundle(lyon().circle(2.0).outlined_pos3(
+                    .spawn_bundle(lyon().add_geometry(&ItemBubble).outlined_pos3(
                         item.color(),
                         Color::BLACK,
                         1.0,
-                        pos.truncate().extend(5.0),
+                        pos,
                     ))
                     .id();
                 draw_items.entities.push(entity);
-            } else if let Ok((mut transform, mut colors)) = shapes.get_mut(draw_items.entities[index]) {
+            } else if let Ok((mut transform, mesh)) = shapes.get_mut(draw_items.entities[index]) {
                 transform.translation.x = pos.x;
                 transform.translation.y = pos.y;
-                colors.main = item.color();
+
+                for mesh in meshes.get_mut(&*mesh) {
+                    if let Some(VertexAttributeValues::Float4(colors)) =
+                        mesh.attribute_mut(Mesh::ATTRIBUTE_COLOR)
+                    {
+                        for color in colors {
+                            if color[..3] != [0.0, 0.0, 0.0] {
+                                *color = item.color().as_rgba_f32();
+                            }
+                        }
+                    }
+                }
             }
 
             index += 1;
         }
     }
 }
+
+struct ItemBubble;
+impl Geometry for ItemBubble {
+    fn add_geometry(&self, b: &mut LyonBuilder) {
+        b.add_rounded_rectangle(
+            &lyon_geom::rect(-2.0, -2.0, 4.0, 4.0),
+            &BorderRadii::new(1.0),
+            lyon_path::Winding::Positive,
+        )
+    }
+}
+

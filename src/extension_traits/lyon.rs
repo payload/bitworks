@@ -1,11 +1,16 @@
 use bevy::prelude::*;
 use bevy_prototype_lyon::{entity::ShapeBundle, prelude::*, shapes::*};
 
+pub use lyon_path::geom as lyon_geom;
+pub use lyon_path::path::Builder as LyonBuilder;
+pub use lyon_path::traits::*;
+
 pub fn lyon() -> GeometryBuilder {
     GeometryBuilder::new()
 }
 
 pub trait GeometryBuilderExt {
+    fn add_geometry(self, geometry: &impl Geometry) -> Self;
     fn polygon(self, sides: usize, radius: f32) -> Self;
     fn rectangle(self, width: f32, height: f32) -> Self;
     fn circle(self, radius: f32) -> Self;
@@ -15,6 +20,11 @@ pub trait GeometryBuilderExt {
 }
 
 impl GeometryBuilderExt for GeometryBuilder {
+    fn add_geometry(mut self, geometry: &impl Geometry) -> Self {
+        self.add(geometry);
+        self
+    }
+
     fn circle(mut self, radius: f32) -> Self {
         self.add(&Circle {
             center: Vec2::ZERO,
