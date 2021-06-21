@@ -1,5 +1,6 @@
 use bevy::{math::vec3, prelude::*, render::mesh::VertexAttributeValues, utils::HashSet};
 
+use bevy_inspector_egui::{InspectableRegistry, WorldInspectorPlugin};
 use bevy_prototype_lyon::prelude::Geometry;
 use bitworks::*;
 use lyon_path::{builder::BorderRadii, traits::PathBuilder};
@@ -16,6 +17,7 @@ pub fn belts_example_app() -> AppBuilder {
         .add_plugin(BeltPlugin)
         .add_plugin(MapPlugin)
         .add_plugin(LyonPlugin)
+        .add_plugin(WorldInspectorPlugin::new())
         .add_system(exit_on_esc_system.system())
         .add_system_to_stage(CoreStage::First, simple_spawner_system.system())
         .add_system_to_stage(
@@ -32,6 +34,13 @@ pub fn belts_example_app() -> AppBuilder {
         // TODO: look up when color changes of shapes can happen
         .add_system_to_stage(CoreStage::Update, draw_belt_system.system())
         .add_startup_system(setup.system());
+    
+    let mut registry = app
+        .world_mut()
+        .get_resource_or_insert_with(InspectableRegistry::default);
+    registry.register::<RandomItemGenerator>();
+    registry.register::<MapPos>();
+
     app
 }
 
@@ -82,6 +91,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
         match simple {
             Simple::ItemGenerator(pos, out_dir) => {
                 cmds.entity(entity)
+                    .insert(Name::new("ItemGenerator"))
                     .insert(*pos)
                     .insert(RandomItemGenerator {
                         cooldown: 1.0,
@@ -104,6 +114,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                 let segment = BeltSegment { start, end };
 
                 cmds.entity(entity)
+                    .insert(Name::new("Belt"))
                     .insert(*pos)
                     .insert(Belt {
                         segments: vec![segment],
@@ -121,6 +132,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
             }
             Simple::NullSink(pos, in_dir) => {
                 cmds.entity(entity)
+                    .insert(Name::new("NullSink"))
                     .insert(pos.clone())
                     .insert(NullSink::new(&[entity]))
                     .insert(ItemInput::new(2))
@@ -147,6 +159,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                     .insert(input(right, in_dir))
                     .id();
                 cmds.entity(entity)
+                    .insert(Name::new("Merger"))
                     .insert(pos1)
                     .insert(Transform::default())
                     .insert(GlobalTransform::default())
@@ -370,4 +383,3 @@ impl Geometry for ItemBubble {
         )
     }
 }
-

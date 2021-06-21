@@ -5,6 +5,7 @@ pub use bevy::input::system::exit_on_esc_system;
 pub use bevy::math::vec2;
 pub use bevy::prelude::*;
 
+use bevy_inspector_egui::InspectorPlugin;
 pub use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 
 pub use bevy_prototype_lyon::plugin::ShapePlugin as LyonPlugin;

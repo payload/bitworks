@@ -1,8 +1,9 @@
 use bevy::{math::vec2, prelude::*, utils::HashMap};
+use bevy_inspector_egui::Inspectable;
 
 use crate::{CompassDir, SingleInput};
 
-#[derive(Default, Debug, PartialEq, Eq, Clone, Copy, Hash)]
+#[derive(Default, Debug, PartialEq, Eq, Clone, Copy, Hash, Inspectable)]
 pub struct MapPos {
     pub x: i32,
     pub y: i32,
