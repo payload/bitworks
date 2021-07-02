@@ -1,9 +1,13 @@
 use std::slice::{Iter, IterMut};
+use trace::trace;
 
 use bevy::{math::vec3, prelude::*};
 
+trace::init_depth_var!();
+
 ///////////////////////////////////////////////////////////////////////////////
 
+#[derive(Debug)]
 pub struct ItemInput {
     space: f32,
     space_padding: bool,
@@ -210,32 +214,40 @@ pub fn belt_advance_items_system(
         let mut item_input = belt.output.and_then(|e| item_inputs.get_mut(e).ok());
 
         for i in (0..belt.items.len()).rev() {
-            belt.items[i].pos += advance;
-
             match next_stop {
                 NextStop::End => {
                     let item = &mut belt.items[i];
-                    item.pos = total_length.min(item.pos);
+                    item.pos = total_length.min(item.pos + advance);
                     next_stop = NextStop::Item(item.pos - item.padding());
                 }
                 NextStop::Item(stop) => {
                     let item = &mut belt.items[i];
-                    item.pos = (stop - item.padding()).min(item.pos);
+                    item.pos = (stop - item.padding()).min(item.pos + advance);
                     next_stop = NextStop::Item(item.pos - item.padding());
                 }
                 NextStop::Output => {
-                    if belt.items[i].pos > total_length {
-                        let item_input = item_input.as_mut().unwrap();
-                        belt.items[i].pos -= total_length;
+                    let item = &mut belt.items[i];
+                    let item_input = item_input.as_mut().unwrap();
 
-                        if try_push_item_to_input(&mut belt.items[i], item_input) {
+                    let size = if item_input.space_padding {
+                        item.padding()
+                    } else {
+                        0.0
+                    };
+
+                    item.pos = (item.pos + advance).min(total_length + item_input.space - size);
+
+                    if item.pos > total_length {
+                        item.pos -= total_length;
+
+                        if try_push_item_to_input(item, item_input) {
                             belt.items.remove(i);
                         } else {
-                            belt.items[i].pos = total_length;
-                            next_stop = NextStop::Item(belt.items[i].pos - belt.items[i].padding());
+                            item.pos = total_length;
+                            next_stop = NextStop::Item(item.pos - item.padding());
                         }
                     } else {
-                        next_stop = NextStop::Item(belt.items[i].pos - belt.items[i].padding());
+                        next_stop = NextStop::Item(item.pos - item.padding());
                     }
                 }
             }

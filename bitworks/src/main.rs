@@ -34,7 +34,7 @@ pub fn belts_example_app() -> AppBuilder {
         // TODO: look up when color changes of shapes can happen
         .add_system_to_stage(CoreStage::Update, draw_belt_system.system())
         .add_startup_system(setup.system());
-    
+
     let mut registry = app
         .world_mut()
         .get_resource_or_insert_with(InspectableRegistry::default);
@@ -94,7 +94,7 @@ fn simple_spawner_system(simples: Query<(Entity, &Simple), Added<Simple>>, mut c
                     .insert(Name::new("ItemGenerator"))
                     .insert(*pos)
                     .insert(RandomItemGenerator {
-                        cooldown: 1.0,
+                        cooldown: 0.0,
                         next_time: 1.0,
                         output: None,
                     })

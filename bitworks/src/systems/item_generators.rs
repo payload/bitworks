@@ -13,7 +13,12 @@ pub struct RandomItemGenerator {
 impl Inspectable for RandomItemGenerator {
     type Attributes = ();
 
-    fn ui(&mut self, ui: &mut bevy_inspector_egui::egui::Ui, _options: Self::Attributes, context: &bevy_inspector_egui::Context) -> bool {
+    fn ui(
+        &mut self,
+        ui: &mut bevy_inspector_egui::egui::Ui,
+        _options: Self::Attributes,
+        context: &bevy_inspector_egui::Context,
+    ) -> bool {
         use bevy_inspector_egui::egui;
 
         let mut changed = false;
@@ -21,11 +26,15 @@ impl Inspectable for RandomItemGenerator {
             let grid = egui::Grid::new(context.id());
             grid.show(ui, |ui| {
                 ui.label("next_time");
-                changed |= self.next_time.ui(ui, Default::default(), &context.with_id(0));
+                changed |= self
+                    .next_time
+                    .ui(ui, Default::default(), &context.with_id(0));
                 ui.end_row();
 
                 ui.label("cooldown");
-                changed |= self.cooldown.ui(ui, Default::default(), &context.with_id(1));
+                changed |= self
+                    .cooldown
+                    .ui(ui, Default::default(), &context.with_id(1));
                 ui.end_row();
 
                 ui.label("output");
