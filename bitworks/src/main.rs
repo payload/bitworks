@@ -1,4 +1,10 @@
-use bevy::{math::vec3, prelude::*, render::mesh::VertexAttributeValues, utils::HashSet};
+use bevy::{
+    input::{keyboard::KeyboardInput, ElementState},
+    math::vec3,
+    prelude::*,
+    render::mesh::VertexAttributeValues,
+    utils::HashSet,
+};
 
 use bevy_inspector_egui::{InspectableRegistry, WorldInspectorPlugin};
 use bevy_prototype_lyon::prelude::Geometry;
@@ -11,29 +17,28 @@ fn main() {
 
 pub fn belts_example_app() -> AppBuilder {
     let mut app = App::build();
-    app.add_plugins(DefaultPlugins)
+    app.add_state(AppState::GamePaused)
+        .add_plugins(DefaultPlugins)
         .add_plugin(DebugLinesPlugin)
         .add_plugin(DebugPlugin)
-        .add_plugin(BeltPlugin)
-        .add_plugin(MapPlugin)
         .add_plugin(LyonPlugin)
-        .add_plugin(WorldInspectorPlugin::new())
+        //.add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(MapPlugin)
         .add_system(exit_on_esc_system.system())
+        .add_system(game_pause_running_switch_system.system())
+        .add_system_to_stage(CoreStage::Update, draw_belt_system.system())
         .add_system_to_stage(CoreStage::First, simple_spawner_system.system())
+        .add_startup_system(setup.system())
         .add_system_to_stage(
             CoreStage::PreUpdate,
-            input_output_hookup_system
-                .system()
-                .after("map_cache")
-                .label("io_hookup"),
+            input_output_hookup_system.system().label("io_hookup"),
         )
         .add_system_to_stage(
             CoreStage::PreUpdate,
             output_item_stuff_hookup_system.system().after("io_hookup"),
         )
-        // TODO: look up when color changes of shapes can happen
-        .add_system_to_stage(CoreStage::Update, draw_belt_system.system())
-        .add_startup_system(setup.system());
+        // GameRunning
+        .add_plugin(BeltPlugin);
 
     let mut registry = app
         .world_mut()
@@ -381,5 +386,27 @@ impl Geometry for ItemBubble {
             &BorderRadii::new(1.0),
             lyon_path::Winding::Positive,
         )
+    }
+}
+
+////
+
+pub fn game_pause_running_switch_system(
+    mut keyboard_input_events: EventReader<KeyboardInput>,
+    mut app_state: ResMut<State<AppState>>,
+) {
+    for event in keyboard_input_events.iter() {
+        if let Some(key_code) = event.key_code {
+            if event.state == ElementState::Released && key_code == KeyCode::Return {
+                let new_state = match app_state.current() {
+                    AppState::GamePaused => AppState::GameRunning,
+                    AppState::GameRunning => AppState::GamePaused,
+                };
+                println!("{:?} => {:?}", app_state.current(), new_state);
+                app_state
+                    .set(new_state)
+                    .expect("state change pause running");
+            }
+        }
     }
 }

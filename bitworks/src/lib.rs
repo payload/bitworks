@@ -23,14 +23,23 @@ pub use systems::*;
 mod extension_traits;
 pub use extension_traits::*;
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub enum AppState {
+    GameRunning,
+    GamePaused,
+}
+
 pub struct BeltPlugin;
 impl Plugin for BeltPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(belt_advance_items_system.system())
-            .add_system(random_item_generator_system.system())
-            .add_system(null_sink_system.system())
-            .add_system(merger_system.system())
-            .add_system_to_stage(CoreStage::PreUpdate, belt_input_system.system());
+        app.add_system_to_stage(CoreStage::PreUpdate, belt_input_system.system())
+            .add_system_set(
+                SystemSet::on_update(AppState::GameRunning)
+                    .with_system(belt_advance_items_system.system())
+                    .with_system(null_sink_system.system())
+                    .with_system(random_item_generator_system.system())
+                    .with_system(merger_system.system()),
+            );
     }
 }
 
@@ -47,14 +56,8 @@ pub struct MapPlugin;
 impl Plugin for MapPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.insert_resource(MapCache::default())
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                map_pos_apply_transform_system.system(),
-            )
-            .add_system_to_stage(
-                CoreStage::PreUpdate,
-                map_cache_system.system().label("map_cache"),
-            );
+            .add_system_to_stage(CoreStage::First, map_pos_apply_transform_system.system())
+            .add_system_to_stage(CoreStage::First, map_cache_system.system());
     }
 }
 
@@ -111,7 +114,8 @@ fn debug_belt_path_place_random_items_system(
     trigger: Res<Input<KeyCode>>,
     mut belts: Query<&mut Belt>,
 ) {
-    if trigger.just_pressed(KeyCode::Space) {
+    if trigger.just_pressed(KeyCode::R) {
+        println!("debug_belt_path_place_random_items_system");
         for mut belt in belts.iter_mut() {
             let item = BeltItem::new(belt.total_length() * fastrand::f32(), Item::random());
             belt.add_item(item);

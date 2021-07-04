@@ -201,7 +201,7 @@ pub fn belt_advance_items_system(
     let time = time.delta_seconds();
 
     for mut belt in belts.iter_mut() {
-        let speed = 10.0;
+        let speed = 50.0;
         let advance = speed * time;
 
         let total_length = belt.total_length();
