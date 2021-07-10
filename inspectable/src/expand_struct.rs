@@ -4,10 +4,10 @@ use quote::quote;
 pub fn expand_struct(derive_input: &syn::DeriveInput, data: &syn::DataStruct) -> TokenStream {
     let name = derive_input.ident.to_string();
 
-    let fields = data.fields.iter().enumerate().filter_map(|(i, f)| {
-        if let Some(ref ident) = f.ident {
+    let fields = data.fields.iter().filter_map(|f| {
+        if let Some(ref _ident) = f.ident {
             Some(quote! {
-                ui.label(ident);
+                ui.label(_ident);
                 changed |= self.#f.ident.ui(ui, Default::default(), &context.with_id(i));
                 ui.end_row();
             })

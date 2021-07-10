@@ -17,7 +17,7 @@ pub fn derive_inspectable(input: TokenStream) -> TokenStream {
 
     match &input.data {
         syn::Data::Struct(data) => expand_struct::expand_struct(&input, data).into(),
-        syn::Data::Enum(data) => unimplemented!(),
+        syn::Data::Enum(_) => unimplemented!(),
         syn::Data::Union(_) => unimplemented!(),
     }
 }
