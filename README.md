@@ -38,8 +38,6 @@ They may be worth a PR to the respective dependency, or not.
 Systems are usually complex and not only consist of a single system function but multiple
 and some structs and components.
 
-Since this 'game' has `buildings` as complex entities, they have their directory.
-`components` is almost unused. Look at `mod.rs` files to find out which is really used.
 `belt_advance_items` was kind of complicated to implement.
 It deals with advancing items on belts and through item inputs into buildings and item outputs onto belts.
 `map_cache` is quite useful. It allows to organise entities on a grid, look up by integer coordinates.

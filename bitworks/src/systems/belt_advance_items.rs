@@ -1,5 +1,4 @@
 use std::slice::{Iter, IterMut};
-use trace::trace;
 
 use bevy::{math::vec3, prelude::*};
 

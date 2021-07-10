@@ -3,7 +3,6 @@ use bevy::{
     input::{keyboard::KeyboardInput, ElementState},
     math::vec3,
     prelude::*,
-    render::mesh::VertexAttributeValues,
     utils::HashSet,
 };
 
@@ -29,7 +28,7 @@ pub fn belts_example_app() -> AppBuilder {
         .add_plugin(DebugLinesPlugin)
         .add_plugin(DebugPlugin)
         .add_plugin(LyonPlugin)
-        //.add_plugin(WorldInspectorPlugin::new())
+        .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(MapPlugin)
         .add_plugin(AssetsPlugin)
         .add_system(exit_on_esc_system.system())

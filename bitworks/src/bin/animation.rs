@@ -15,7 +15,8 @@ fn setup(
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
     let tex: Handle<Texture> = asset.load("image.png");
-    let atlas = TextureAtlas::from_grid_with_padding(tex.clone(), vec2(48.0, 48.0), 8, 8, vec2(2.0, 2.0));
+    let atlas =
+        TextureAtlas::from_grid_with_padding(tex.clone(), vec2(48.0, 48.0), 8, 8, vec2(2.0, 2.0));
     let atlas_handle = atlases.add(atlas);
 
     let material_handle = materials.add(ColorMaterial {
