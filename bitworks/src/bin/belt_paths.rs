@@ -18,7 +18,7 @@ pub fn belts_example_app() -> AppBuilder {
 
 fn setup(mut cmds: Commands) {
     let cmds = &mut cmds;
-    cmds.spawn_bundle(nice_camera());
+    spawn_2d_ortho_camera(cmds);
     cmds.spawn_bundle(belt1());
 
     let belt2_sink = cmds.spawn_bundle(item_sink(vec2(30.0, -20.0))).id();

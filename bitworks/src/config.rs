@@ -2,7 +2,7 @@ use serde::Deserialize;
 
 #[derive(Debug, Deserialize, Default)]
 pub struct Config {
-    pub log_diagnostics: bool
+    pub log_diagnostics: bool,
 }
 
 impl Config {

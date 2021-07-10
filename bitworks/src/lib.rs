@@ -27,6 +27,9 @@ pub use assets::*;
 mod config;
 pub use config::*;
 
+mod camera;
+pub use camera::*;
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AppState {
     GameRunning,
@@ -74,13 +77,6 @@ impl Plugin for AssetsPlugin {
         app.add_startup_system(load_belt_atlas.system())
             .add_startup_system(load_item_texture.system());
     }
-}
-
-pub fn nice_camera() -> impl Bundle {
-    let mut camera = OrthographicCameraBundle::new_2d();
-    camera.transform.translation.y = 48.0;
-    camera.orthographic_projection.scale = 0.5;
-    camera
 }
 
 fn debug_draw_item_things_system(

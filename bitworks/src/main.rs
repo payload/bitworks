@@ -37,6 +37,7 @@ pub fn belts_example_app() -> AppBuilder {
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(MapPlugin)
         .add_plugin(AssetsPlugin)
+        .add_plugin(CameraPlugin)
         .add_system(exit_on_esc_system.system())
         .add_system(game_pause_running_switch_system.system())
         .add_system_to_stage(CoreStage::PreUpdate, draw_belt_system.system())
@@ -66,7 +67,7 @@ pub fn belts_example_app() -> AppBuilder {
 fn setup(mut cmds: Commands) {
     let cmds = &mut cmds;
 
-    cmds.spawn_bundle(nice_camera());
+    spawn_3d_orbit_camera(cmds);
 
     use CompassDir::*;
     for simple in vec![

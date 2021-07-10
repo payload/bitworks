@@ -862,6 +862,7 @@ dependencies = [
  "lyon_path",
  "ron",
  "serde",
+ "smooth-bevy-cameras",
 ]
 
 [[package]]
@@ -3108,6 +3109,16 @@ version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "smooth-bevy-cameras"
+version = "0.1.0"
+source = "git+https://github.com/bonsairobo/smooth-bevy-cameras?branch=main#b68cf57f9b57c23f9e21969eecb50f3349ef4bdc"
+dependencies = [
+ "approx",
+ "bevy",
  "serde",
 ]
 
