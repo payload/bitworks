@@ -38,6 +38,10 @@ pub fn load_item_texture(
     mut atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     let tex: Handle<Texture> = asset.load("item.png");
-    let atlas = TextureAtlas::from_grid_with_padding(tex, vec2(48.0, 48.0), 1, 1, Vec2::ZERO);
+    let mut atlas = TextureAtlas::new_empty(tex, vec2(48.0, 48.0));
+    atlas.add_texture(bevy::sprite::Rect {
+        min: vec2(16.0, 16.0),
+        max: vec2(32.0, 32.0),
+    });
     cmds.insert_resource(ItemAtlasHandle(atlases.add(atlas)));
 }

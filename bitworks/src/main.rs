@@ -367,18 +367,22 @@ fn draw_belt_system(
         for item in belt.items() {
             let item: &BeltItem = item;
             let (pos, _dir) = belt.location_on_path(item.pos) as (Vec3, Vec3);
-            let pos = vec3(pos.x, pos.y, 5.0);
+            let pos = vec3(pos.x, pos.y, 0.1);
 
             if index >= draw_items.entities.len() {
                 let entity = cmds
                     .spawn_bundle(SpriteSheetBundle {
+                        texture_atlas: item_atlas.clone(),
                         transform: Transform::from_translation(pos),
+                        visible: Visible {
+                            is_visible: true,
+                            is_transparent: true,
+                        },
                         sprite: TextureAtlasSprite {
                             index: 0,
                             color: item.color(),
                             ..Default::default()
                         },
-                        texture_atlas: item_atlas.clone(),
                         ..Default::default()
                     })
                     .id();
