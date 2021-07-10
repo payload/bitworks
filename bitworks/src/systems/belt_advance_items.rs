@@ -68,7 +68,7 @@ impl BeltItem {
     }
 
     pub fn padding(&self) -> f32 {
-        4.0
+        10.0
     }
 }
 

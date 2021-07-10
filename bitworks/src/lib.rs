@@ -23,6 +23,9 @@ pub use systems::*;
 mod extension_traits;
 pub use extension_traits::*;
 
+mod assets;
+pub use assets::*;
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AppState {
     GameRunning,
@@ -47,7 +50,7 @@ pub struct DebugPlugin;
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_system(debug_draw_item_things_system.system())
-            .add_system(debug_draw_belt_system.system())
+            //.add_system(debug_draw_belt_system.system())
             .add_system(debug_belt_path_place_random_items_system.system());
     }
 }
@@ -61,10 +64,19 @@ impl Plugin for MapPlugin {
     }
 }
 
+pub struct AssetsPlugin;
+impl Plugin for AssetsPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_startup_system(load_belt_atlas.system())
+            .add_startup_system(load_item_texture.system());
+    }
+}
+
 pub fn nice_camera() -> impl Bundle {
     let mut camera = OrthographicCameraBundle::new_2d();
+    camera.transform.translation.y = 48.0;
     camera.transform.translation.z = 100.0;
-    camera.orthographic_projection.scale = 0.25;
+    camera.orthographic_projection.scale = 0.5;
     camera
 }
 

@@ -76,8 +76,6 @@ pub fn map_cache_system(
     pos: Query<(Entity, &MapPos), (With<SingleInput>, Added<MapPos>)>,
 ) {
     for (e, pos) in pos.iter() {
-        println!("map   {:?} at {:?}", e, pos);
-
         map.entity_cache.insert(e, (*pos).clone());
         map.pos_cache.insert(pos.clone(), e);
     }
@@ -95,6 +93,6 @@ pub fn map_pos_apply_transform_system(
     mut query: Query<(&MapPos, &mut Transform), Changed<MapPos>>,
 ) {
     for (pos, mut transform) in query.iter_mut() {
-        pos.apply(32.0, &mut transform);
+        pos.apply(48.0, &mut transform);
     }
 }
