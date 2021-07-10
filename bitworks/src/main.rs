@@ -20,11 +20,15 @@ fn main() {
 
 pub fn belts_example_app() -> AppBuilder {
     let mut app = App::build();
+
+    if std::env::var("BIT_LOG_DIAGNOSTICS").map_or(false, |s| !s.is_empty()) {
+        app.add_plugin(LogDiagnosticsPlugin::default());
+    }
+
     app.add_state(AppState::GamePaused)
         .add_plugins(DefaultPlugins)
         .add_plugin(DiagnosticsPlugin)
         .add_plugin(FrameTimeDiagnosticsPlugin)
-        //.add_plugin(LogDiagnosticsPlugin::default())
         .add_plugin(DebugLinesPlugin)
         .add_plugin(DebugPlugin)
         .add_plugin(LyonPlugin)
@@ -320,7 +324,7 @@ fn output_item_stuff_hookup_system(
         Changed<MultipleOutputs>,
     >,
 ) {
-    for ((entity, outputs), it) in entities.iter_mut() {
+    for ((_entity, outputs), it) in entities.iter_mut() {
         if let Some(mut merger) = it.0 {
             let len = outputs.outputs.len();
             merger.outputs.resize(len, Entity::new(0));

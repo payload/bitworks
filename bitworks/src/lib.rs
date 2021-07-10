@@ -48,8 +48,11 @@ pub struct DebugPlugin;
 impl Plugin for DebugPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_system(debug_draw_item_things_system.system())
-            //.add_system(debug_draw_belt_system.system())
             .add_system(debug_belt_path_place_random_items_system.system());
+
+        if std::env::var("BIT_DEBUG_DRAW_BELT").map_or(false, |s| !s.is_empty()) {
+            app.add_system(debug_draw_belt_system.system());
+        }
     }
 }
 

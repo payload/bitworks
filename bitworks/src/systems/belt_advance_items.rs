@@ -214,7 +214,7 @@ pub fn belt_advance_items_system(
             match next_stop {
                 NextStop::End => {
                     let item = &mut belt.items[i];
-                    item.pos = total_length.min(item.pos + advance);
+                    item.pos = f32::min(total_length, item.pos + advance);
                     next_stop = NextStop::Item(item.pos - item.padding());
                 }
                 NextStop::Item(stop) => {
