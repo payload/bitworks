@@ -24,6 +24,9 @@ pub use extension_traits::*;
 mod assets;
 pub use assets::*;
 
+mod config;
+pub use config::*;
+
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AppState {
     GameRunning,
@@ -76,7 +79,6 @@ impl Plugin for AssetsPlugin {
 pub fn nice_camera() -> impl Bundle {
     let mut camera = OrthographicCameraBundle::new_2d();
     camera.transform.translation.y = 48.0;
-    camera.transform.translation.z = 100.0;
     camera.orthographic_projection.scale = 0.5;
     camera
 }

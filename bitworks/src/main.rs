@@ -19,9 +19,11 @@ fn main() {
 }
 
 pub fn belts_example_app() -> AppBuilder {
+    let config = Config::from_ron("config.ron").expect("config.ron");
+
     let mut app = App::build();
 
-    if std::env::var("BIT_LOG_DIAGNOSTICS").map_or(false, |s| !s.is_empty()) {
+    if config.log_diagnostics {
         app.add_plugin(LogDiagnosticsPlugin::default());
     }
 
