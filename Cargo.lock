@@ -154,7 +154,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "assetgen"
+name = "assets-generator"
 version = "0.1.0"
 dependencies = [
  "tiny-skia",
@@ -860,10 +860,6 @@ dependencies = [
  "inspectable",
  "lazy_static",
  "lyon_path",
- "prometheus",
- "prometheus-static-metric",
- "trace",
- "tracing",
 ]
 
 [[package]]
@@ -2781,39 +2777,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "prometheus"
-version = "0.12.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5986aa8d62380092d2f50f8b1cdba9cb9b6731ffd4b25b51fd126b6c3e05b99c"
-dependencies = [
- "cfg-if 1.0.0",
- "fnv",
- "lazy_static",
- "memchr",
- "parking_lot",
- "protobuf",
- "thiserror",
-]
-
-[[package]]
-name = "prometheus-static-metric"
-version = "0.5.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f8f30cdb09c39930b8fa5e0f23cbb895ab3f766b187403a0ba0956fc1ef4f0e5"
-dependencies = [
- "lazy_static",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
-name = "protobuf"
-version = "2.23.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45604fc7a88158e7d514d8e22e14ac746081e7a70d7690074dd0029ee37458d6"
-
-[[package]]
 name = "quote"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3377,17 +3340,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a31142970826733df8241ef35dc040ef98c679ab14d7c3e54d827099b3acecaa"
 dependencies = [
  "serde",
-]
-
-[[package]]
-name = "trace"
-version = "0.1.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "593f20eabd47262794270bba246594d8e106221a22694a5e4164dc347f0520d3"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn",
 ]
 
 [[package]]

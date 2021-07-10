@@ -2,9 +2,9 @@
 
 ## How to run and build things
 
-Create assets by running `assetgen`.
+Create assets by running `assets-generator`.
 
-```cargo run --bin assetgen bitworks/assets```
+```cargo run --bin assets-generator bitworks/assets```
 
 Run the main executable `bitworks` to run a current demo.
 Probably is is starting as paused and you need to press a key to unpause.

@@ -2,8 +2,6 @@ use std::slice::{Iter, IterMut};
 
 use bevy::{math::vec3, prelude::*};
 
-trace::init_depth_var!();
-
 ///////////////////////////////////////////////////////////////////////////////
 
 #[derive(Debug)]

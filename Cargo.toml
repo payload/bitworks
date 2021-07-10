@@ -2,5 +2,5 @@
 members = [
   "bitworks",
   "inspectable",
-  "assetgen",
+  "assets-generator",
 ]
