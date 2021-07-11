@@ -4,7 +4,7 @@ use bevy::{
 };
 
 use bevy_inspector_egui::{InspectableRegistry, WorldInspectorPlugin};
-use bevy_rapier2d::prelude::*;
+use bevy_rapier2d::{na::Vector2, prelude::*};
 
 use bitworks::*;
 
@@ -54,9 +54,44 @@ struct SetupPlugin;
 impl Plugin for SetupPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_system(setup.system())
-            .add_startup_system(setup_rapier.system())
-            .add_startup_system(spawn_player.system());
+            .add_startup_system(setup_rapier.system().label("rapier"))
+            .add_startup_system(spawn_yellow_obstacle.system().after("rapier"))
+            .add_startup_system(spawn_player.system().after("rapier"));
     }
+}
+
+fn spawn_yellow_obstacle(
+    mut cmds: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    rapier_config: Res<RapierConfiguration>,
+) {
+    let sprite_size = vec2(TILE_SIZE, TILE_SIZE);
+
+    let collider_size_x = sprite_size.x / rapier_config.scale;
+    let collider_size_y = sprite_size.y / rapier_config.scale;
+
+    cmds.spawn()
+        .insert_bundle(RigidBodyBundle {
+            body_type: RigidBodyType::Static,
+            position: RigidBodyPosition {
+                position: Isometry::new(Vector2::new(0.0, 3.0), 0.0),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert_bundle(ColliderBundle {
+            position: [collider_size_x / 2.0, collider_size_y / 2.0].into(),
+            ..Default::default()
+        })
+        .insert(ColliderPositionSync::Discrete)
+        .insert_bundle(SpriteBundle {
+            material: materials.add(ColorMaterial {
+                color: Color::rgb(0.8, 0.8, 0.2),
+                texture: None,
+            }),
+            sprite: Sprite::new(sprite_size),
+            ..Default::default()
+        });
 }
 
 fn setup(mut cmds: Commands) {
@@ -97,6 +132,9 @@ fn spawn_player(
 ) {
     let sprite_size = vec2(0.75 * TILE_SIZE, 0.75 * TILE_SIZE);
 
+    let collider_size_x = sprite_size.x / rapier_config.scale;
+    let collider_size_y = sprite_size.y / rapier_config.scale;
+
     cmds.spawn_bundle(SpriteBundle {
         material: materials.add(ColorMaterial {
             color: Color::rgb(0.4, 0.4, 0.9),
@@ -106,8 +144,20 @@ fn spawn_player(
         transform: Transform::from_xyz(0.0, 0.0, 10.0),
         ..Default::default()
     })
-    .wasd_player_movement_insert_default_rb_collider(sprite_size, &rapier_config)
     .insert(WasdPlayerMovment {
         velocity: 6.0 * sprite_size.x,
-    });
+    })
+    .insert(CameraFollow)
+    .insert_bundle(RigidBodyBundle {
+        mass_properties: RigidBodyMassProps {
+            flags: RigidBodyMassPropsFlags::ROTATION_LOCKED,
+            ..Default::default()
+        },
+        ..Default::default()
+    })
+    .insert_bundle(ColliderBundle {
+        position: [collider_size_x / 2.0, collider_size_y / 2.0].into(),
+        ..Default::default()
+    })
+    .insert(ColliderPositionSync::Discrete);
 }
