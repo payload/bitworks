@@ -48,16 +48,7 @@ pub fn belts_example_app() -> AppBuilder {
         .add_system(game_pause_running_switch_system.system())
         .add_system_to_stage(CoreStage::PreUpdate, draw_belt_system.system())
         .add_system_to_stage(CoreStage::PreUpdate, simple_spawner_system.system())
-        .add_startup_system(setup.system())
-        .add_system_to_stage(
-            CoreStage::PreUpdate,
-            input_output_hookup_system.system().label("io_hookup"),
-        )
-        .add_system_to_stage(
-            CoreStage::PreUpdate,
-            output_item_stuff_hookup_system.system().after("io_hookup"),
-        )
-        // GameRunning
+        .add_plugin(BeltInputOutputHookupPlugin)
         .add_plugin(BeltPlugin)
         .add_system(belt_sprite_system.system());
 
@@ -100,7 +91,7 @@ struct SetupPlugin;
 
 impl Plugin for SetupPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app
+        app.add_startup_system(setup.system())
             .add_startup_system(setup_rapier.system())
             .add_startup_system(spawn_player.system());
     }
@@ -128,7 +119,9 @@ fn spawn_player(
         ..Default::default()
     })
     .wasd_player_movement_insert_default_rb_collider(sprite_size, &rapier_config)
-    .insert(WasdPlayerMovment { velocity: 6.0 * sprite_size.x });
+    .insert(WasdPlayerMovment {
+        velocity: 6.0 * sprite_size.x,
+    });
 }
 
 #[derive(Debug, Clone)]
@@ -290,6 +283,21 @@ fn output<P: Into<MapPos>>(pos: P, dir: CompassDir) -> MultipleOutputs {
 
 fn outputs(entries: &[(MapPos, CompassDir)]) -> MultipleOutputs {
     MultipleOutputs::new(entries)
+}
+
+struct BeltInputOutputHookupPlugin;
+
+impl Plugin for BeltInputOutputHookupPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_system_to_stage(
+            CoreStage::PreUpdate,
+            input_output_hookup_system.system().label("io_hookup"),
+        )
+        .add_system_to_stage(
+            CoreStage::PreUpdate,
+            output_item_stuff_hookup_system.system().after("io_hookup"),
+        );
+    }
 }
 
 #[derive(Default)]

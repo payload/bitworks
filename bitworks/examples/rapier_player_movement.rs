@@ -147,7 +147,10 @@ fn player_movement(
     }
 }
 
-fn linked_rigidbody_rotation(link_parents: Query<(&Children, &LinkRbLinvelRot, &RigidBodyVelocity)>, mut linked: Query<(&mut Transform, &LinkedRbRot)>) {
+fn linked_rigidbody_rotation(
+    link_parents: Query<(&Children, &LinkRbLinvelRot, &RigidBodyVelocity)>,
+    mut linked: Query<(&mut Transform, &LinkedRbRot)>,
+) {
     for (children, _, rb_vel) in link_parents.iter() {
         let linvel: Vector2<f32> = rb_vel.linvel;
         if linvel.magnitude_squared() > 0.1 {

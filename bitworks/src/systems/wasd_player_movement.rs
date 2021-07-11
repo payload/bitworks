@@ -12,11 +12,19 @@ impl Plugin for WasdPlayerMovementPlugin {
 }
 
 pub trait EntityCommandsExt {
-    fn wasd_player_movement_insert_default_rb_collider(&mut self, sprite_size: Vec2, rapier_config: &RapierConfiguration) -> &mut Self;
+    fn wasd_player_movement_insert_default_rb_collider(
+        &mut self,
+        sprite_size: Vec2,
+        rapier_config: &RapierConfiguration,
+    ) -> &mut Self;
 }
 
 impl<'a, 'b> EntityCommandsExt for EntityCommands<'a, 'b> {
-    fn wasd_player_movement_insert_default_rb_collider(&mut self, sprite_size: Vec2, rapier_config: &RapierConfiguration) -> &mut Self {
+    fn wasd_player_movement_insert_default_rb_collider(
+        &mut self,
+        sprite_size: Vec2,
+        rapier_config: &RapierConfiguration,
+    ) -> &mut Self {
         let collider_size_x = sprite_size.x / rapier_config.scale;
         let collider_size_y = sprite_size.y / rapier_config.scale;
 
