@@ -66,9 +66,7 @@ fn spawn_yellow_obstacle(
     rapier_config: Res<RapierConfiguration>,
 ) {
     let sprite_size = vec2(TILE_SIZE, TILE_SIZE);
-
-    let collider_size_x = sprite_size.x / rapier_config.scale;
-    let collider_size_y = sprite_size.y / rapier_config.scale;
+    let collider_halfsize = sprite_size / rapier_config.scale / 2.0;
 
     cmds.spawn()
         .insert_bundle(RigidBodyBundle {
@@ -80,7 +78,8 @@ fn spawn_yellow_obstacle(
             ..Default::default()
         })
         .insert_bundle(ColliderBundle {
-            position: [collider_size_x / 2.0, collider_size_y / 2.0].into(),
+            position: [collider_halfsize.x, collider_halfsize.y].into(),
+            shape: SharedShape::cuboid(collider_halfsize.x, collider_halfsize.y),
             ..Default::default()
         })
         .insert(ColliderPositionSync::Discrete)
@@ -131,9 +130,7 @@ fn spawn_player(
     rapier_config: Res<RapierConfiguration>,
 ) {
     let sprite_size = vec2(0.75 * TILE_SIZE, 0.75 * TILE_SIZE);
-
-    let collider_size_x = sprite_size.x / rapier_config.scale;
-    let collider_size_y = sprite_size.y / rapier_config.scale;
+    let collider_halfsize = sprite_size / rapier_config.scale / 2.0;
 
     cmds.spawn_bundle(SpriteBundle {
         material: materials.add(ColorMaterial {
@@ -156,7 +153,9 @@ fn spawn_player(
         ..Default::default()
     })
     .insert_bundle(ColliderBundle {
-        position: [collider_size_x / 2.0, collider_size_y / 2.0].into(),
+        position: [collider_halfsize.x, collider_halfsize.y].into(),
+        shape: SharedShape::cuboid(collider_halfsize.x, collider_halfsize.y),
+        material: ColliderMaterial::new(0.0, 0.0),
         ..Default::default()
     })
     .insert(ColliderPositionSync::Discrete);
