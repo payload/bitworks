@@ -8,8 +8,11 @@ use bevy::{
 
 use bevy_inspector_egui::{InspectableRegistry, WorldInspectorPlugin};
 use bevy_prototype_lyon::prelude::Geometry;
-use bitworks::*;
+use bevy_rapier2d::prelude::*;
+
 use lyon_path::{builder::BorderRadii, traits::PathBuilder};
+
+use bitworks::*;
 
 const TILE_SIZE: f32 = 48.0;
 const TILE_HALFSIZE: f32 = 24.0;
@@ -38,6 +41,9 @@ pub fn belts_example_app() -> AppBuilder {
         .add_plugin(MapPlugin)
         .add_plugin(AssetsPlugin)
         .add_plugin(CameraPlugin)
+        .add_plugin(WasdPlayerMovementPlugin)
+        .add_plugin(SetupPlugin)
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
         .add_system(exit_on_esc_system.system())
         .add_system(game_pause_running_switch_system.system())
         .add_system_to_stage(CoreStage::PreUpdate, draw_belt_system.system())
@@ -88,6 +94,41 @@ fn setup(mut cmds: Commands) {
     ] {
         cmds.spawn_bundle((simple,));
     }
+}
+
+struct SetupPlugin;
+
+impl Plugin for SetupPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app
+            .add_startup_system(setup_rapier.system())
+            .add_startup_system(spawn_player.system());
+    }
+}
+
+fn setup_rapier(mut rapier_config: ResMut<RapierConfiguration>) {
+    rapier_config.gravity = Default::default();
+    rapier_config.scale = TILE_SIZE;
+}
+
+fn spawn_player(
+    mut cmds: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    rapier_config: Res<RapierConfiguration>,
+) {
+    let sprite_size = vec2(0.75 * TILE_SIZE, 0.75 * TILE_SIZE);
+
+    cmds.spawn_bundle(SpriteBundle {
+        material: materials.add(ColorMaterial {
+            color: Color::rgb(0.4, 0.4, 0.9),
+            texture: None,
+        }),
+        sprite: Sprite::new(sprite_size),
+        transform: Transform::from_xyz(0.0, 0.0, 10.0),
+        ..Default::default()
+    })
+    .wasd_player_movement_insert_default_rb_collider(sprite_size, &rapier_config)
+    .insert(WasdPlayerMovment { velocity: 6.0 * sprite_size.x });
 }
 
 #[derive(Debug, Clone)]

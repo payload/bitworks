@@ -20,6 +20,7 @@ lazy_static = "1.4.0"
 lyon_path = "0.17.2"
 serde = "1.0.126"
 ron = "0.6.4"
+bevy_rapier2d = "0.10.2"
 
 [dependencies.smooth-bevy-cameras]
 git = "https://github.com/bonsairobo/smooth-bevy-cameras"

@@ -9,3 +9,6 @@ pub use null_sink::*;
 
 mod item_generators;
 pub use item_generators::*;
+
+mod wasd_player_movement;
+pub use wasd_player_movement::*;
