@@ -9,6 +9,15 @@ pub struct MapPos {
     pub y: i32,
 }
 
+pub struct MapPlugin;
+impl Plugin for MapPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.insert_resource(MapCache::default())
+            .add_system_to_stage(CoreStage::First, map_pos_apply_transform_system.system())
+            .add_system_to_stage(CoreStage::First, map_cache_system.system());
+    }
+}
+
 impl MapPos {
     pub fn new(x: i32, y: i32) -> Self {
         Self { x, y }

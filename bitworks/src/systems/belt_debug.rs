@@ -16,7 +16,7 @@ impl Plugin for BeltDebugPlugin {
 
 fn debug_draw_item_things_system(
     mut lines: ResMut<DebugLines>,
-    things: Query<(Entity, &Pos), Or<(With<RandomItemGenerator>, With<ItemInput>)>>,
+    things: Query<(Entity, &Vec2), Or<(With<RandomItemGenerator>, With<ItemInput>)>>,
 ) {
     for (_it, pos) in things.iter() {
         let pos = pos.extend(0.0);

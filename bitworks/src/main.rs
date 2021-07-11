@@ -27,7 +27,6 @@ pub fn belts_example_app() -> AppBuilder {
         .add_plugin(FrameTimeDiagnosticsPlugin)
         .add_plugin(DebugLinesPlugin)
         .add_plugin(BeltDebugPlugin)
-        .add_plugin(LyonPlugin)
         .add_plugin(WorldInspectorPlugin::new())
         .add_plugin(MapPlugin)
         .add_plugin(AssetsPlugin)

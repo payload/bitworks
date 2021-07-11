@@ -27,3 +27,6 @@ pub use simple_spawner::*;
 
 mod belt_debug;
 pub use belt_debug::*;
+
+mod belt;
+pub use belt::*;

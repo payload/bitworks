@@ -1,5 +1,6 @@
-use bevy::{math::vec3, prelude::*};
+use bevy::prelude::*;
 
+use bevy_prototype_lyon::plugin::ShapePlugin as LyonPlugin;
 use bevy_prototype_lyon::prelude::Geometry;
 use lyon_path::{builder::BorderRadii, traits::PathBuilder};
 
@@ -9,7 +10,8 @@ pub struct BeltGraphicsPlugin;
 
 impl Plugin for BeltGraphicsPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(belt_sprite_animation_system.system())
+        app.add_plugin(LyonPlugin)
+            .add_system(belt_sprite_animation_system.system())
             .add_system_to_stage(CoreStage::PreUpdate, draw_belt_system.system());
     }
 }
