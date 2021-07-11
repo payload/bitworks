@@ -24,3 +24,6 @@ pub use game_state::*;
 
 mod simple_spawner;
 pub use simple_spawner::*;
+
+mod belt_debug;
+pub use belt_debug::*;
