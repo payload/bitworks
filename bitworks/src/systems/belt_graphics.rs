@@ -3,10 +3,7 @@ use bevy::{math::vec3, prelude::*};
 use bevy_prototype_lyon::prelude::Geometry;
 use lyon_path::{builder::BorderRadii, traits::PathBuilder};
 
-use crate::{
-    lyon_geom, Belt, BeltItem, CompassDir, GetColor, ItemAtlasHandle, LyonBuilder, MultipleOutputs,
-    SingleInput,
-};
+use crate::*;
 
 pub struct BeltGraphicsPlugin;
 
@@ -142,5 +139,18 @@ fn belt_sprite_animation_system(
         }
 
         cmds.entity(entity).insert(new_anim);
+    }
+}
+
+pub trait GetColor {
+    fn color(&self) -> Color;
+}
+
+impl GetColor for Item {
+    fn color(&self) -> Color {
+        match self {
+            Item::Red => COLOR_C2,
+            Item::Green => COLOR_P2,
+        }
     }
 }

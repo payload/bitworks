@@ -50,6 +50,16 @@ pub fn belts_example_app() -> AppBuilder {
     app
 }
 
+struct SetupPlugin;
+
+impl Plugin for SetupPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.add_startup_system(setup.system())
+            .add_startup_system(setup_rapier.system())
+            .add_startup_system(spawn_player.system());
+    }
+}
+
 fn setup(mut cmds: Commands) {
     let cmds = &mut cmds;
 
@@ -73,16 +83,6 @@ fn setup(mut cmds: Commands) {
         Simple::NullSink(map_pos(2, 2), W),
     ] {
         cmds.spawn_bundle((simple,));
-    }
-}
-
-struct SetupPlugin;
-
-impl Plugin for SetupPlugin {
-    fn build(&self, app: &mut AppBuilder) {
-        app.add_startup_system(setup.system())
-            .add_startup_system(setup_rapier.system())
-            .add_startup_system(spawn_player.system());
     }
 }
 
