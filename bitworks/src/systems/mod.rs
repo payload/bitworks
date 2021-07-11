@@ -30,3 +30,6 @@ pub use belt_debug::*;
 
 mod belt;
 pub use belt::*;
+
+mod merger;
+pub use merger::*;

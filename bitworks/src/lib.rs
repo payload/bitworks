@@ -6,9 +6,6 @@ pub use bevy::prelude::*;
 
 pub use bevy_prototype_debug_lines::{DebugLines, DebugLinesPlugin};
 
-mod merger;
-pub use merger::*;
-
 mod systems;
 pub use systems::*;
 
