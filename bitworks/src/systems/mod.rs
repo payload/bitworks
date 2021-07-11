@@ -21,3 +21,6 @@ pub use belt_input_output_hookup::*;
 
 mod game_state;
 pub use game_state::*;
+
+mod simple_spawner;
+pub use simple_spawner::*;

@@ -1,5 +1,8 @@
 use serde::Deserialize;
 
+pub const TILE_SIZE: f32 = 48.0;
+pub const TILE_HALFSIZE: f32 = 24.0;
+
 #[derive(Debug, Deserialize, Default)]
 pub struct Config {
     pub log_diagnostics: bool,
