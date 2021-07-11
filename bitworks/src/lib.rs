@@ -1,7 +1,6 @@
 #![feature(total_cmp)]
 #![feature(drain_filter)]
 
-pub use bevy::input::system::exit_on_esc_system;
 pub use bevy::math::vec2;
 pub use bevy::prelude::*;
 
@@ -11,9 +10,6 @@ pub use bevy_prototype_lyon::plugin::ShapePlugin as LyonPlugin;
 
 mod merger;
 pub use merger::*;
-
-mod game_types;
-pub use game_types::*;
 
 mod systems;
 pub use systems::*;
@@ -30,11 +26,8 @@ pub use config::*;
 mod camera;
 pub use camera::*;
 
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub enum AppState {
-    GameRunning,
-    GamePaused,
-}
+mod compass;
+pub use compass::*;
 
 pub struct BeltPlugin;
 impl Plugin for BeltPlugin {

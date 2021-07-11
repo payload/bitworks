@@ -1,8 +1,4 @@
-use bevy::{math::vec2, prelude::*};
-
-use crate::MapPos;
-
-///////////////////////////////////////////////////////////////////////////////
+use bevy::math::{vec2, Vec2};
 
 #[derive(Clone, Debug, PartialEq, Eq, Hash, Copy)]
 pub enum CompassDir {
@@ -52,19 +48,4 @@ impl CompassDir {
             W => vec2(-1.0, 0.0),
         }
     }
-}
-
-pub struct SingleInput {
-    pub pos: MapPos,
-    pub dir: CompassDir,
-}
-
-pub fn input(pos: MapPos, dir: CompassDir) -> SingleInput {
-    SingleInput { pos, dir }
-}
-
-pub struct SingleOutput {
-    pub pos: MapPos,
-    pub dir: CompassDir,
-    pub entity: Option<Entity>,
 }

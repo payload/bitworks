@@ -1,6 +1,5 @@
 use bevy::{
     diagnostic::{DiagnosticsPlugin, FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    input::{keyboard::KeyboardInput, ElementState},
     math::vec3,
     prelude::*,
     utils::HashSet,
@@ -44,13 +43,12 @@ pub fn belts_example_app() -> AppBuilder {
         .add_plugin(WasdPlayerMovementPlugin)
         .add_plugin(SetupPlugin)
         .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-        .add_system(exit_on_esc_system.system())
-        .add_system(game_pause_running_switch_system.system())
+        .add_plugin(GameStatePlugin)
         .add_system_to_stage(CoreStage::PreUpdate, draw_belt_system.system())
         .add_system_to_stage(CoreStage::PreUpdate, simple_spawner_system.system())
         .add_plugin(BeltInputOutputHookupPlugin)
         .add_plugin(BeltPlugin)
-        .add_system(belt_sprite_system.system());
+        .add_plugin(BeltSpriteAnimationPlugin);
 
     let mut registry = app
         .world_mut()
@@ -252,39 +250,6 @@ fn simple_spawner_system(
     }
 }
 
-struct MultipleOutputs {
-    outputs: Vec<SingleOutput>,
-}
-
-impl MultipleOutputs {
-    fn new(entries: &[(MapPos, CompassDir)]) -> Self {
-        Self {
-            outputs: entries
-                .iter()
-                .map(|(pos, dir)| SingleOutput {
-                    pos: *pos,
-                    dir: *dir,
-                    entity: None,
-                })
-                .collect(),
-        }
-    }
-}
-
-fn output<P: Into<MapPos>>(pos: P, dir: CompassDir) -> MultipleOutputs {
-    MultipleOutputs {
-        outputs: vec![SingleOutput {
-            pos: pos.into(),
-            dir,
-            entity: None,
-        }],
-    }
-}
-
-fn outputs(entries: &[(MapPos, CompassDir)]) -> MultipleOutputs {
-    MultipleOutputs::new(entries)
-}
-
 struct BeltInputOutputHookupPlugin;
 
 impl Plugin for BeltInputOutputHookupPlugin {
@@ -458,94 +423,5 @@ impl Geometry for ItemBubble {
             &BorderRadii::new(1.0),
             lyon_path::Winding::Positive,
         )
-    }
-}
-
-////
-
-pub fn game_pause_running_switch_system(
-    mut keyboard_input_events: EventReader<KeyboardInput>,
-    mut app_state: ResMut<State<AppState>>,
-) {
-    for event in keyboard_input_events.iter() {
-        if let Some(key_code) = event.key_code {
-            if event.state == ElementState::Released && key_code == KeyCode::Return {
-                let new_state = match app_state.current() {
-                    AppState::GamePaused => AppState::GameRunning,
-                    AppState::GameRunning => AppState::GamePaused,
-                };
-                info!("{:?} => {:?}", app_state.current(), new_state);
-                app_state
-                    .set(new_state)
-                    .expect("state change pause running");
-            }
-        }
-    }
-}
-
-///////
-
-#[derive(Clone, Default)]
-struct BeltSpriteAnimation {
-    row: u32,
-    col: u32,
-    flip_x: bool,
-    flip_y: bool,
-    backwards: bool,
-}
-
-fn belt_sprite_system(
-    mut cmds: Commands,
-    mut belts: Query<(
-        Entity,
-        Option<&BeltSpriteAnimation>,
-        &Belt,
-        &SingleInput,
-        &MultipleOutputs,
-        &mut TextureAtlasSprite,
-    )>,
-    time: Res<Time>,
-) {
-    use CompassDir::*;
-    let time = time.seconds_since_startup();
-    let anim_col = (time.fract() * 8.0) as u32;
-
-    for (entity, anim, _belt, input, output, mut sprite) in belts.iter_mut() {
-        let mut new_anim: BeltSpriteAnimation = anim.cloned().unwrap_or_else(|| {
-            let (row, flip_x, flip_y, backwards) =
-                match (input.dir, output.outputs.first().unwrap().dir) {
-                    (W, E) => (0, false, false, false),
-                    (N, S) => (1, false, true, false),
-                    (W, N) => (2, false, false, false),
-                    (S, E) => (3, false, false, false),
-                    _ => (0, false, false, true),
-                };
-            BeltSpriteAnimation {
-                col: anim_col,
-                row,
-                flip_x,
-                flip_y,
-                backwards,
-            }
-        });
-
-        new_anim.col = anim_col;
-
-        if sprite.flip_x != new_anim.flip_x {
-            sprite.flip_x = new_anim.flip_x;
-        }
-        if sprite.flip_y != new_anim.flip_y {
-            sprite.flip_y = new_anim.flip_y;
-        }
-        let new_index = if new_anim.backwards {
-            7 - new_anim.col + new_anim.row * 8
-        } else {
-            new_anim.col + new_anim.row * 8
-        };
-        if sprite.index != new_index {
-            sprite.index = new_index;
-        }
-
-        cmds.entity(entity).insert(new_anim);
     }
 }

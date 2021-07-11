@@ -37,13 +37,10 @@ and some structs and components.
 It deals with advancing items on belts and through item inputs into buildings and item outputs onto belts.
 `map_cache` is quite useful. It allows to organise entities on a grid, look up by integer coordinates.
 Probably gonna use that in the future too but have separate map caches for different entity types.
-
-`game_types` is an exageration. Just a few structs and impls.
+`belt_input_output_hookup` uses map cache to connect belt and building inputs with outputs.
+In conjunction with `simple_spawner` this helps and spawning some connected buildings and belts.
 
 `assets` for now can keep some loading and organising assets systems and resources.
-
-`merger` contains just a single system. It was kind of complicated, so it got its own file.
-Maybe should move to systems directory?
 
 `camera` contains some spawn and configuration helpers for static and interactive cameras.
 The default orbit camera can be used with mouse right drag, wheel and move while holding CTRL.
