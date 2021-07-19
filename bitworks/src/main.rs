@@ -4,6 +4,7 @@ use bevy::{
 };
 
 use bevy_inspector_egui::{InspectableRegistry, WorldInspectorPlugin};
+use bevy_mod_picking::*;
 use bevy_rapier2d::{na::Vector2, prelude::*};
 
 use bitworks::*;
@@ -13,7 +14,9 @@ fn main() {
 }
 
 pub fn belts_example_app() -> AppBuilder {
-    let config = Config::from_ron("config.ron").expect("config.ron");
+    let config = Config::from_ron("config.ron")
+        .or_else(|_| Config::from_ron("bitworks/config.ron"))
+        .expect("config.ron");
 
     let mut app = App::build();
 
@@ -38,7 +41,11 @@ pub fn belts_example_app() -> AppBuilder {
         .add_plugin(GameStatePlugin)
         .add_plugin(BeltInputOutputHookupPlugin)
         .add_plugin(BeltPlugin)
-        .add_plugin(BeltGraphicsPlugin);
+        .add_plugin(BeltGraphicsPlugin)
+        .add_plugin(PickingPlugin)
+        .add_plugin(InteractablePickingPlugin)
+        .add_plugin(HighlightablePickingPlugin)
+        .add_plugin(DebugCursorPickingPlugin);
 
     let mut registry = app
         .world_mut()
@@ -158,5 +165,6 @@ fn spawn_player(
         material: ColliderMaterial::new(0.0, 0.0),
         ..Default::default()
     })
+    .insert_bundle(PickableBundle::default())
     .insert(ColliderPositionSync::Discrete);
 }

@@ -2,6 +2,7 @@ use bevy::{
     math::{vec2, vec3},
     prelude::*,
 };
+use bevy_mod_picking::PickingCameraBundle;
 use smooth_bevy_cameras::{
     controllers::orbit::{OrbitCameraBundle, OrbitCameraController, OrbitCameraPlugin},
     LookTransform, LookTransformPlugin,
@@ -29,7 +30,8 @@ pub fn spawn_3d_orbit_camera(cmds: &mut Commands) {
         PerspectiveCameraBundle::new_3d(),
         vec3(0.0, 0.0, 500.0), // be reasonably far away for 2D entities
         Vec3::ZERO,            // look towards the forward facing 2D entities
-    ));
+    ))
+    .insert_bundle(PickingCameraBundle::default());
 }
 
 pub fn spawn_2d_ortho_camera(cmds: &mut Commands) {
