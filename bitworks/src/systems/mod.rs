@@ -33,3 +33,6 @@ pub use belt::*;
 
 mod merger;
 pub use merger::*;
+
+mod voxel;
+pub use voxel::*;
