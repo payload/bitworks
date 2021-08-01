@@ -6,6 +6,9 @@ use smooth_bevy_cameras::{
     LookTransformPlugin,
 };
 
+/*
+TODO: still needs some scenes and a scene change on keyboard press
+*/
 fn main() {
     let mut app = App::build();
     app.add_plugins(DefaultPlugins)
