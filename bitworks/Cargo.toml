@@ -12,7 +12,7 @@ inspectable = {path = "../inspectable"}
 
 # game stuff
 bevy = "0.5.0"
-bevy-inspector-egui = "0.5.1"
+bevy-inspector-egui = "0.6.1"
 bevy_prototype_debug_lines = "0.3.1"
 bevy_prototype_lyon = "0.3.1"
 fastrand = "1.4.1"
@@ -23,7 +23,7 @@ ron = "0.6.4"
 bevy_rapier2d = "0.10.2"
 bevy_mod_picking = "0.4"
 bevy_vox_mesh = "0.3.0"
-
+bevy_egui = "0.6.1"
 
 [dependencies.smooth-bevy-cameras]
 git = "https://github.com/bonsairobo/smooth-bevy-cameras"
