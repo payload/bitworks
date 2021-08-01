@@ -62,12 +62,11 @@ fn setup_stuff(
         ..Default::default()
     });
 
-    commands
-        // light
-        .spawn_bundle(LightBundle {
-            transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
-            ..Default::default()
-        });
+    commands.spawn_bundle(LightBundle {
+        transform: Transform::from_translation(Vec3::new(4.0, 5.0, 4.0)),
+        ..Default::default()
+    });
+
     commands.spawn_bundle(OrbitCameraBundle::new(
         OrbitCameraController {
             enabled: true,
