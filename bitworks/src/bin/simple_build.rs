@@ -10,14 +10,15 @@ use smooth_bevy_cameras::controllers::orbit::{OrbitCameraBundle, OrbitCameraCont
 fn main() {
     let mut app = App::build();
     app.add_plugins(DefaultPlugins)
-        .add_plugin(PickingPlugin)
-        .add_plugin(InteractablePickingPlugin)
+        //.add_plugin(PickingPlugin)
+        //.add_plugin(InteractablePickingPlugin)
         .add_plugin(CameraPlugin)
         .add_plugin(VoxelPlugin)
         .add_plugin(EguiPlugin)
-        .add_plugin(DebugEventsPickingPlugin)
-        .add_plugin(DebugCursorPickingPlugin)
-        .add_plugin(DefaultRaycastingPlugin::<MyRaycastSet>::default())
+        //.add_plugin(DebugEventsPickingPlugin)
+        //.add_plugin(DebugCursorPickingPlugin)
+        //.add_plugin(DefaultRaycastingPlugin::<MyRaycastSet>::default())
+        .add_plugin(RaycastPlugin)
         .add_plugin(Setup);
     app.run();
 }
@@ -32,6 +33,29 @@ impl Plugin for Setup {
             .add_startup_system(spawn_camera.system())
             .add_startup_system(spawn_plane_selector.system())
             .add_startup_system(spawn_plane.system());
+    }
+}
+
+//
+
+struct RaycastPlugin;
+
+impl Plugin for RaycastPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        app.init_resource::<PluginState<MyRaycastSet>>()
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                build_rays::<MyRaycastSet>
+                    .system()
+                    .label(RaycastSystem::BuildRays),
+            )
+            .add_system_to_stage(
+                CoreStage::PreUpdate,
+                update_raycast::<MyRaycastSet>
+                    .system()
+                    .label(RaycastSystem::UpdateRaycast)
+                    .after(RaycastSystem::BuildRays),
+            );
     }
 }
 
@@ -80,7 +104,8 @@ fn spawn_plane(
     cmds.spawn()
         .insert_bundle(PbrBundle {
             mesh: meshes.add(shape::Plane { size: 100.0 }.into()),
-            material: materials.add(StandardMaterial::unlit_color(Color::DARK_GREEN)),
+            transform: Transform::from_translation(vec3(0.0, -0.1, 0.0)),
+            material: materials.add(StandardMaterial::unlit_color(Color::DARK_GRAY)),
             ..Default::default()
         })
         .insert(RayCastMesh::<MyRaycastSet>::default())
@@ -105,11 +130,11 @@ fn spawn_plane_selector(
                 .into(),
             ),
             transform: Transform {
-                translation: vec3(0.0, 0.1, 0.0),
+                translation: vec3(0.0, 0.0, 0.0),
                 rotation: Quat::from_rotation_y(FRAC_PI_4),
                 scale: vec3(1.0, 1.0, 1.0),
             },
-            material: materials.add(StandardMaterial::unlit_color(Color::LIME_GREEN)),
+            material: materials.add(StandardMaterial::unlit_color(Color::GRAY)),
             ..Default::default()
         })
         .insert(PlaneSelector);
