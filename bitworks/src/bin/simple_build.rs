@@ -1,6 +1,9 @@
 use std::f32::consts::FRAC_PI_4;
 
-use bevy::input::{mouse::MouseButtonInput, ElementState};
+use bevy::{
+    ecs::system::EntityCommands,
+    input::{mouse::MouseButtonInput, ElementState},
+};
 use bitworks::*;
 
 use bevy_egui::{egui, EguiContext, EguiPlugin};
@@ -52,15 +55,25 @@ fn build_on_click(
     for event in events.iter() {
         if let (MouseButton::Left, ElementState::Pressed) = (event.button, event.state) {
             if let Ok(transform) = plane_selector_query.single() {
-                let cmds = &mut cmds;
+                let tool = *tool;
                 let build_pos = transform.translation;
 
-                match *tool {
+                match tool {
                     Tool::Clear => {}
                     Tool::Spring => {
-                        cmds.spawn_bundle((BuildSpring, Transform::from_translation(build_pos)));
+                        cmds.spawn_bundle((
+                            BuildSpring,
+                            GlobalTransform::identity(),
+                            Transform::from_translation(build_pos),
+                        ));
                     }
-                    Tool::Glassblower => todo!(),
+                    Tool::Glassblower => {
+                        cmds.spawn_bundle((
+                            BuildGlassblower,
+                            GlobalTransform::identity(),
+                            Transform::from_translation(build_pos),
+                        ));
+                    }
                     Tool::Tap => todo!(),
                     Tool::Trash => todo!(),
                 }
@@ -71,21 +84,26 @@ fn build_on_click(
 
 //
 
+struct BuildGlassblower;
+
 struct BuildSpring;
 fn build_spring(
     mut cmds: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    query: Query<(Entity, &Transform), With<BuildSpring>>,
+    query: Query<Entity, With<BuildSpring>>,
 ) {
-    for (entity, transform) in query.iter() {
-        cmds.entity(entity)
-            .insert_bundle(PbrBundle {
+    for entity in query.iter() {
+        let model = cmds
+            .spawn_bundle(PbrBundle {
                 mesh: meshes.add(shape::Cube { size: 0.6 }.into()),
                 material: materials.add(StandardMaterial::unlit_color(Color::BLACK)),
                 ..Default::default()
             })
-            .insert(transform.clone())
+            .id();
+
+        cmds.entity(entity)
+            .push_children(&[model])
             .remove::<BuildSpring>();
     }
 }
