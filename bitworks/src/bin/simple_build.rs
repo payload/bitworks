@@ -1,5 +1,6 @@
 use std::f32::consts::FRAC_PI_4;
 
+use bevy::input::{mouse::MouseButtonInput, ElementState};
 use bitworks::*;
 
 use bevy_egui::{egui, EguiContext, EguiPlugin};
@@ -27,12 +28,65 @@ struct Setup;
 
 impl Plugin for Setup {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(tool_ui.system())
+        app //
+            .insert_resource(Tool::Clear)
+            .add_system(build_spring.system())
+            .add_system(tool_ui.system())
+            .add_system(build_on_click.system())
             .add_system_to_stage(CoreStage::PreUpdate, update_raycast_with_cursor.system())
             .add_system(update_plane_selector_with_raycast_source.system())
             .add_startup_system(spawn_camera.system())
             .add_startup_system(spawn_plane_selector.system())
             .add_startup_system(spawn_plane.system());
+    }
+}
+
+//
+
+fn build_on_click(
+    mut events: EventReader<MouseButtonInput>,
+    plane_selector_query: Query<&Transform, With<PlaneSelector>>,
+    tool: Res<Tool>,
+    mut cmds: Commands,
+) {
+    for event in events.iter() {
+        if let (MouseButton::Left, ElementState::Pressed) = (event.button, event.state) {
+            if let Ok(transform) = plane_selector_query.single() {
+                let cmds = &mut cmds;
+                let build_pos = transform.translation;
+
+                match *tool {
+                    Tool::Clear => {}
+                    Tool::Spring => {
+                        cmds.spawn_bundle((BuildSpring, Transform::from_translation(build_pos)));
+                    }
+                    Tool::Glassblower => todo!(),
+                    Tool::Tap => todo!(),
+                    Tool::Trash => todo!(),
+                }
+            }
+        }
+    }
+}
+
+//
+
+struct BuildSpring;
+fn build_spring(
+    mut cmds: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    query: Query<(Entity, &Transform), With<BuildSpring>>,
+) {
+    for (entity, transform) in query.iter() {
+        cmds.entity(entity)
+            .insert_bundle(PbrBundle {
+                mesh: meshes.add(shape::Cube { size: 0.6 }.into()),
+                material: materials.add(StandardMaterial::unlit_color(Color::BLACK)),
+                ..Default::default()
+            })
+            .insert(transform.clone())
+            .remove::<BuildSpring>();
     }
 }
 
@@ -172,8 +226,8 @@ impl Default for Tool {
     }
 }
 
-fn tool_ui(mut local_tool: Local<Tool>, egui_ctx: Res<EguiContext>) {
-    let tool = &mut *local_tool;
+fn tool_ui(mut res_tool: ResMut<Tool>, egui_ctx: Res<EguiContext>) {
+    let tool = &mut *res_tool;
 
     egui::Window::new("Tool")
         .scroll(true)
