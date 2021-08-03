@@ -22,6 +22,7 @@ serde = "1.0.126"
 ron = "0.6.4"
 bevy_rapier2d = "0.10.2"
 bevy_mod_picking = "0.4"
+bevy_mod_raycast = "0.2"
 bevy_vox_mesh = "0.3.0"
 bevy_egui = "0.6.1"
 

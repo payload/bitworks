@@ -1,10 +1,13 @@
 use bevy_vox_mesh::VoxMeshPlugin;
 
-use bevy::{reflect::TypeUuid, render::{
-    pipeline::{PipelineDescriptor, RenderPipeline},
-    render_graph::base::MainPass,
-    shader::{ShaderStage, ShaderStages},
-}};
+use bevy::{
+    reflect::TypeUuid,
+    render::{
+        pipeline::{PipelineDescriptor, RenderPipeline},
+        render_graph::base::MainPass,
+        shader::{ShaderStage, ShaderStages},
+    },
+};
 
 use bevy::prelude::*;
 
