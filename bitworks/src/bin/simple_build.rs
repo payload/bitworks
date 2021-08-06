@@ -90,30 +90,42 @@ fn build_spring_at(cmds: &mut Commands, p: &mut BuildParams, transform: Transfor
 }
 
 fn build_glassblower_at(cmds: &mut Commands, p: &mut BuildParams, transform: Transform) {
-    cmds.spawn_bundle(PbrBundle {
-        transform,
-        mesh: p.meshes.get_handle("building-glassblower"),
-        material: p.materials.get_handle("black"),
-        ..Default::default()
-    });
+    cmds.spawn_bundle((transform, GlobalTransform::identity()))
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(PbrBundle {
+                    mesh: p.meshes.get_handle("building-glassblower"),
+                    material: p.materials.get_handle("black"),
+                    ..Default::default()
+                })
+                .insert(BuildAnimation { value: 0.0 });
+        });
 }
 
 fn build_tap_at(cmds: &mut Commands, p: &mut BuildParams, transform: Transform) {
-    cmds.spawn_bundle(PbrBundle {
-        transform,
-        mesh: p.meshes.get_handle("building-tap"),
-        material: p.materials.get_handle("black"),
-        ..Default::default()
-    });
+    cmds.spawn_bundle((transform, GlobalTransform::identity()))
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(PbrBundle {
+                    mesh: p.meshes.get_handle("building-tap"),
+                    material: p.materials.get_handle("black"),
+                    ..Default::default()
+                })
+                .insert(BuildAnimation { value: 0.0 });
+        });
 }
 
 fn build_trash_at(cmds: &mut Commands, p: &mut BuildParams, transform: Transform) {
-    cmds.spawn_bundle(PbrBundle {
-        transform,
-        mesh: p.meshes.get_handle("building-trash"),
-        material: p.materials.get_handle("black"),
-        ..Default::default()
-    });
+    cmds.spawn_bundle((transform, GlobalTransform::identity()))
+        .with_children(|parent| {
+            parent
+                .spawn_bundle(PbrBundle {
+                    mesh: p.meshes.get_handle("building-trash"),
+                    material: p.materials.get_handle("black"),
+                    ..Default::default()
+                })
+                .insert(BuildAnimation { value: 0.0 });
+        });
 }
 
 //
