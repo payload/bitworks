@@ -1,6 +1,7 @@
 use std::f32::consts::{FRAC_PI_4, PI};
 
 use bevy::{
+    ecs::component::Component,
     input::{mouse::MouseButtonInput, ElementState},
     utils::HashMap,
 };
@@ -41,10 +42,105 @@ impl Plugin for Setup {
             .add_system(update_plane_selector_with_raycast_source.system())
             .add_system(update_build_ghost.system())
             .add_system(animation_system.system())
+            .add_system(update_producers_system.system())
+            .add_system(build_random_walker.system())
+            .add_system(update_random_walker.system())
             .add_startup_system(spawn_camera.system())
             .add_startup_system(spawn_plane_selector.system())
             .add_startup_system(spawn_plane.system())
             .add_startup_system(setup_assets.system());
+    }
+}
+
+//
+
+struct Build;
+
+#[derive(Default)]
+struct RandomWalker {
+    direction: Vec3,
+    speed: f32,
+    time: f32,
+}
+
+enum Product {
+    RandomWalker,
+}
+
+struct ProducerEntry {
+    time: f32,
+    product: Product,
+}
+
+struct Producer {
+    production: Vec<ProducerEntry>,
+}
+
+fn update_producers_system(
+    mut cmds: Commands,
+    mut producers: Query<(&GlobalTransform, &mut Producer)>,
+    time: Res<Time>,
+) {
+    let cmds = &mut cmds;
+    let dt = time.delta_seconds();
+
+    for (global, mut producer) in producers.iter_mut() {
+        let mut producer: Mut<Producer> = producer;
+        for mut entry in producer.production.iter_mut() {
+            entry.time = (entry.time - dt).max(0.0);
+
+            if entry.time == 0.0 {
+                match entry.product {
+                    Product::RandomWalker => build(
+                        cmds,
+                        &Transform::from_translation(global.translation),
+                        RandomWalker::default(),
+                    ),
+                }
+            }
+        }
+
+        producer.production.retain(|e| e.time > 0.0);
+    }
+
+    fn build<C: Component>(cmds: &mut Commands, t: &Transform, comp: C) {
+        println!("{:?}", t.translation);
+        cmds.spawn_bundle((Build, t.clone(), comp, GlobalTransform::identity()));
+    }
+}
+
+fn build_random_walker(
+    mut cmds: Commands,
+    query: Query<Entity, (With<Build>, With<RandomWalker>)>,
+    models: Res<Models>,
+) {
+    for entity in query.iter() {
+        cmds.entity(entity)
+            .remove::<Build>()
+            .with_children(|parent| {
+                parent.spawn_bundle(models.random_walker.bundle());
+            });
+    }
+}
+
+fn update_random_walker(time: Res<Time>, mut walkers: Query<(&mut Transform, &mut RandomWalker)>) {
+    let dt = time.delta_seconds();
+
+    for (mut transform, mut walker) in walkers.iter_mut() {
+        walker.time += dt;
+
+        if walker.time > 1.5 || walker.speed == 0.0 {
+            walker.time = 0.0;
+            walker.direction =
+                vec3(fastrand::f32() - 0.5, 0.0, fastrand::f32() - 0.5).normalize_or_zero();
+            walker.speed = 1.0 + 2.0 * fastrand::f32();
+        }
+
+        if walker.speed != 0.0 {
+            let v = walker.direction * walker.speed * dt;
+            transform.translation.x += v.x;
+            transform.translation.z += v.z;
+        }
     }
 }
 
@@ -101,6 +197,16 @@ fn build_on_click(
                 parent
                     .spawn_bundle(model.bundle())
                     .insert_bundle(PickableBundle::default());
+                parent.spawn_bundle((
+                    GlobalTransform::identity(),
+                    Transform::from_translation(vec3(1.0, 0.0, 0.0)),
+                    Producer {
+                        production: vec![ProducerEntry {
+                            time: 1.0,
+                            product: Product::RandomWalker,
+                        }],
+                    },
+                ));
             })
             .id();
 
@@ -202,6 +308,7 @@ pub struct Models {
     building_trash: Model,
     build_ghost_buildable: Handle<StandardMaterial>,
     build_ghost_not_buildable: Handle<StandardMaterial>,
+    random_walker: Model,
 }
 
 fn setup_assets(
@@ -251,6 +358,20 @@ fn setup_assets(
 
     models.build_ghost_buildable = green;
     models.build_ghost_not_buildable = red;
+
+    models.random_walker = Model {
+        transform: Transform::from_translation(vec3(0.0, 0.4, 0.0)),
+        material: black.clone(),
+        mesh: meshes.add(
+            shape::Torus {
+                radius: 0.4,
+                ring_radius: 0.1,
+                subdivisions_segments: 3,
+                subdivisions_sides: 3,
+            }
+            .into(),
+        ),
+    };
 }
 
 //
