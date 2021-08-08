@@ -1,4 +1,4 @@
-use std::f32::consts::{FRAC_PI_4, PI};
+use std::f32::consts::{FRAC_PI_2, FRAC_PI_3, FRAC_PI_4, PI};
 
 use bevy::{
     ecs::component::Component,
@@ -58,7 +58,7 @@ struct Build;
 
 #[derive(Default)]
 struct RandomWalker {
-    direction: Vec3,
+    angle: f32,
     speed: f32,
     time: f32,
 }
@@ -104,7 +104,6 @@ fn update_producers_system(
     }
 
     fn build<C: Component>(cmds: &mut Commands, t: &Transform, comp: C) {
-        println!("{:?}", t.translation);
         cmds.spawn_bundle((Build, t.clone(), comp, GlobalTransform::identity()));
     }
 }
@@ -128,19 +127,24 @@ fn update_random_walker(time: Res<Time>, mut walkers: Query<(&mut Transform, &mu
 
     for (mut transform, mut walker) in walkers.iter_mut() {
         walker.time += dt;
+        
+        let p: Vec2 = vec2(transform.translation.x, transform.translation.z);
 
-        if walker.time > 1.5 || walker.speed == 0.0 {
-            walker.time = 0.0;
-            walker.direction =
-                vec3(fastrand::f32() - 0.5, 0.0, fastrand::f32() - 0.5).normalize_or_zero();
-            walker.speed = 1.0 + 2.0 * fastrand::f32();
+        if walker.speed == 0.0 {
+            //walker.angle = fastrand::f32() * 2.0 * PI;
+            walker.angle = (-p.y).atan2(-p.x) + 0.2 * PI * (0.5 - fastrand::f32());
+            walker.speed = 2.0 + 0.5 * fastrand::f32();
         }
 
-        if walker.speed != 0.0 {
-            let v = walker.direction * walker.speed * dt;
-            transform.translation.x += v.x;
-            transform.translation.z += v.z;
+        if p.distance(Vec2::ZERO) > 5.0 {
+            walker.angle = (-p.y).atan2(-p.x) + 0.2 * PI * (0.5 - fastrand::f32());
         }
+
+        transform.rotation = Quat::from_rotation_y(walker.angle);
+
+        let step = walker.speed * dt;
+        transform.translation.x += walker.angle.cos() * step;
+        transform.translation.z += walker.angle.sin() * step;
     }
 }
 
