@@ -19,7 +19,7 @@ fn main() {
         .add_plugin(CameraPlugin)
         .add_plugin(VoxelPlugin)
         .add_plugin(EguiPlugin)
-        .add_plugin(DebugEventsPickingPlugin)
+        // .add_plugin(DebugEventsPickingPlugin)
         //.add_plugin(DebugCursorPickingPlugin)
         //.add_plugin(DefaultRaycastingPlugin::<MyRaycastSet>::default())
         .add_plugin(RaycastPlugin)
@@ -68,7 +68,7 @@ fn build_on_click(
                 let transform = Transform::from_translation(transform.translation);
 
                 match tool {
-                    Tool::Clear => field.clear_building(transform.translation),
+                    Tool::Clear => try_clear(cmds, transform, field),
                     Tool::Spring => try_build(cmds, transform, &models.building_spring, field),
                     Tool::Glassblower => {
                         try_build(cmds, transform, &models.building_glassblower, field)
@@ -77,6 +77,12 @@ fn build_on_click(
                     Tool::Trash => try_build(cmds, transform, &models.building_trash, field),
                 }
             }
+        }
+    }
+
+    fn try_clear(cmds: &mut Commands, transform: Transform, field: &mut Field) {
+        if let Some(entity) = field.clear_building(transform.translation) {
+            cmds.entity(entity).despawn_recursive();
         }
     }
 
@@ -110,10 +116,12 @@ struct Field {
 }
 
 impl Field {
-    fn clear_building(&mut self, at: Vec3) {
-        self.cells
-            .entry(at.as_i32())
-            .and_modify(|cell| cell.building = None);
+    fn clear_building(&mut self, at: Vec3) -> Option<Entity> {
+        if let Some(cell) = self.cells.get_mut(&at.as_i32()) {
+            cell.building.take()
+        } else {
+            None
+        }
     }
 
     fn set_building(&mut self, at: Vec3, entity: Entity) {
