@@ -1,9 +1,6 @@
 use std::f32::consts::{FRAC_PI_4, PI};
 
-use bevy::{
-    ecs::system::SystemParam,
-    input::{mouse::MouseButtonInput, ElementState},
-};
+use bevy::input::{mouse::MouseButtonInput, ElementState};
 use bitworks::*;
 
 use bevy_egui::{egui, EguiContext, EguiPlugin};
@@ -14,8 +11,8 @@ use smooth_bevy_cameras::controllers::orbit::{OrbitCameraBundle, OrbitCameraCont
 fn main() {
     let mut app = App::build();
     app.add_plugins(DefaultPlugins)
-        //.add_plugin(PickingPlugin)
-        //.add_plugin(InteractablePickingPlugin)
+        .add_plugin(PickingPlugin)
+        .add_plugin(InteractablePickingPlugin)
         .add_plugin(CameraPlugin)
         .add_plugin(VoxelPlugin)
         .add_plugin(EguiPlugin)
@@ -33,6 +30,7 @@ impl Plugin for Setup {
     fn build(&self, app: &mut AppBuilder) {
         app //
             .insert_resource(Tool::Spring)
+            .insert_resource(Models::default())
             .add_system(tool_ui.system())
             .add_system(build_on_click.system())
             .add_system_to_stage(CoreStage::PreUpdate, update_raycast_with_cursor.system())
@@ -53,10 +51,9 @@ fn build_on_click(
     plane_selector_query: Query<&Transform, With<PlaneSelector>>,
     tool: Res<Tool>,
     mut cmds: Commands,
-    mut build_params: BuildParams,
+    models: Res<Models>,
 ) {
     let cmds = &mut cmds;
-    let p = &mut build_params;
 
     for event in events.iter() {
         if let (MouseButton::Left, ElementState::Pressed) = (event.button, event.state) {
@@ -66,70 +63,30 @@ fn build_on_click(
 
                 match tool {
                     Tool::Clear => {}
-                    Tool::Spring => build_spring_at(cmds, p, transform),
-                    Tool::Glassblower => build_glassblower_at(cmds, p, transform),
-                    Tool::Tap => build_tap_at(cmds, p, transform),
-                    Tool::Trash => build_trash_at(cmds, p, transform),
+                    Tool::Spring => build(cmds, transform, &models.building_spring),
+                    Tool::Glassblower => build(cmds, transform, &models.building_glassblower),
+                    Tool::Tap => build(cmds, transform, &models.building_tap),
+                    Tool::Trash => build(cmds, transform, &models.building_trash),
                 }
             }
         }
     }
-}
 
-fn build_spring_at(cmds: &mut Commands, p: &mut BuildParams, transform: Transform) {
-    cmds.spawn_bundle((transform, GlobalTransform::identity()))
+    fn build(cmds: &mut Commands, transform: Transform, model: &Model) {
+        cmds.spawn_bundle((
+            transform,
+            GlobalTransform::identity(),
+            BuildAnimation::default(),
+        ))
         .with_children(|parent| {
-            parent
-                .spawn_bundle(PbrBundle {
-                    mesh: p.meshes.get_handle("building-spring"),
-                    material: p.materials.get_handle("black"),
-                    ..Default::default()
-                })
-                .insert(BuildAnimation { value: 0.0 });
+            parent.spawn_bundle(model.bundle());
         });
-}
-
-fn build_glassblower_at(cmds: &mut Commands, p: &mut BuildParams, transform: Transform) {
-    cmds.spawn_bundle((transform, GlobalTransform::identity()))
-        .with_children(|parent| {
-            parent
-                .spawn_bundle(PbrBundle {
-                    mesh: p.meshes.get_handle("building-glassblower"),
-                    material: p.materials.get_handle("black"),
-                    ..Default::default()
-                })
-                .insert(BuildAnimation { value: 0.0 });
-        });
-}
-
-fn build_tap_at(cmds: &mut Commands, p: &mut BuildParams, transform: Transform) {
-    cmds.spawn_bundle((transform, GlobalTransform::identity()))
-        .with_children(|parent| {
-            parent
-                .spawn_bundle(PbrBundle {
-                    mesh: p.meshes.get_handle("building-tap"),
-                    material: p.materials.get_handle("black"),
-                    ..Default::default()
-                })
-                .insert(BuildAnimation { value: 0.0 });
-        });
-}
-
-fn build_trash_at(cmds: &mut Commands, p: &mut BuildParams, transform: Transform) {
-    cmds.spawn_bundle((transform, GlobalTransform::identity()))
-        .with_children(|parent| {
-            parent
-                .spawn_bundle(PbrBundle {
-                    mesh: p.meshes.get_handle("building-trash"),
-                    material: p.materials.get_handle("black"),
-                    ..Default::default()
-                })
-                .insert(BuildAnimation { value: 0.0 });
-        });
+    }
 }
 
 //
 
+#[derive(Default)]
 struct BuildAnimation {
     value: f32,
 }
@@ -152,7 +109,7 @@ fn animation_system(
         // hull is from 1 to 0
         // bounce is is 3 times from 1 to 0
         let hull = -(x * x) + 1.0;
-        let bounce = 0.5 * (5.0 * x * PI).cos() + 1.0;
+        let bounce = 0.5 * ((5.0 * x * PI).cos() + 1.0);
 
         transform.translation.y = hull * bounce;
 
@@ -162,41 +119,82 @@ fn animation_system(
 
 //
 
-fn setup_assets(mut meshes: ResMut<Assets<Mesh>>, mut materials: ResMut<Assets<StandardMaterial>>) {
-    let _ = meshes.set("building-spring", shape::Cube { size: 0.6 }.into());
-    let _ = meshes.set("building-glassblower", shape::Cube { size: 0.8 }.into());
-    let _ = meshes.set(
-        "building-tap",
-        shape::Icosphere {
-            radius: 0.3,
-            subdivisions: 1,
-        }
-        .into(),
-    );
-    let _ = meshes.set(
-        "building-trash",
-        shape::Icosphere {
-            radius: 0.4,
-            subdivisions: 3,
-        }
-        .into(),
-    );
+#[derive(Default)]
+pub struct Model {
+    mesh: Handle<Mesh>,
+    material: Handle<StandardMaterial>,
+    transform: Transform,
+}
 
-    let _ = materials.set("black", StandardMaterial::unlit_color(Color::BLACK));
+impl Model {
+    fn bundle(&self) -> PbrBundle {
+        PbrBundle {
+            transform: self.transform,
+            mesh: self.mesh.clone(),
+            material: self.material.clone(),
+            ..Default::default()
+        }
+    }
+}
+
+#[derive(Default)]
+pub struct Models {
+    building_spring: Model,
+    building_tap: Model,
+    building_glassblower: Model,
+    building_trash: Model,
+}
+
+fn setup_assets(
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut models: ResMut<Models>,
+) {
+    let black = materials.set("black", StandardMaterial::unlit_color(Color::BLACK));
+
+    models.building_spring = Model {
+        transform: Transform::from_translation(vec3(0.0, 0.3, 0.0)),
+        material: black.clone(),
+        mesh: meshes.add(shape::Cube { size: 0.6 }.into()),
+    };
+
+    models.building_glassblower = Model {
+        transform: Transform::from_translation(vec3(0.0, 0.4, 0.0)),
+        material: black.clone(),
+        mesh: meshes.add(shape::Cube { size: 0.8 }.into()),
+    };
+
+    models.building_tap = Model {
+        transform: Transform::from_translation(vec3(0.0, 0.3, 0.0)),
+        material: black.clone(),
+        mesh: meshes.add(
+            shape::Icosphere {
+                radius: 0.3,
+                subdivisions: 1,
+            }
+            .into(),
+        ),
+    };
+
+    models.building_trash = Model {
+        transform: Transform::from_translation(vec3(0.0, 0.4, 0.0)),
+        material: black.clone(),
+        mesh: meshes.add(
+            shape::Icosphere {
+                radius: 0.4,
+                subdivisions: 3,
+            }
+            .into(),
+        ),
+    };
 }
 
 //
 
-#[derive(SystemParam)]
-pub struct BuildParams<'a> {
-    meshes: Res<'a, Assets<Mesh>>,
-    materials: Res<'a, Assets<StandardMaterial>>,
-}
-
 struct BuildGhost;
 fn update_build_ghost(
     res_tool: Res<Tool>,
-    meshes: Res<Assets<Mesh>>,
+    models: Res<Models>,
     mut ghost_query: Query<(&mut Tool, &mut Handle<Mesh>, &mut Visible), With<BuildGhost>>,
 ) {
     if let Ok((mut ghost_tool, mut handle_mesh, mut visible)) = ghost_query.single_mut() {
@@ -212,10 +210,10 @@ fn update_build_ghost(
                 let handle = handle_mesh.clone();
                 *handle_mesh = match tool {
                     Tool::Clear => handle,
-                    Tool::Spring => meshes.get_handle("building-spring"),
-                    Tool::Glassblower => meshes.get_handle("building-glassblower"),
-                    Tool::Tap => meshes.get_handle("building-tap"),
-                    Tool::Trash => meshes.get_handle("building-trash"),
+                    Tool::Spring => models.building_spring.mesh.clone(),
+                    Tool::Glassblower => models.building_glassblower.mesh.clone(),
+                    Tool::Tap => models.building_tap.mesh.clone(),
+                    Tool::Trash => models.building_trash.mesh.clone(),
                 };
             }
         }
@@ -290,7 +288,7 @@ fn spawn_plane(
     cmds.spawn()
         .insert_bundle(PbrBundle {
             mesh: meshes.add(shape::Plane { size: 100.0 }.into()),
-            transform: Transform::from_translation(vec3(0.0, -0.1, 0.0)),
+            transform: Transform::from_translation(vec3(0.0, 0.0, 0.0)),
             material: materials.add(StandardMaterial::unlit_color(Color::DARK_GRAY)),
             ..Default::default()
         })
@@ -320,7 +318,11 @@ fn spawn_plane_selector(
                 }
                 .into(),
             ),
-            transform: Transform::from_rotation(Quat::from_rotation_y(FRAC_PI_4)),
+            transform: Transform {
+                translation: vec3(0.0, 0.1, 0.0),
+                rotation: Quat::from_rotation_y(FRAC_PI_4),
+                scale: Vec3::ONE,
+            },
             material: materials.add(StandardMaterial::unlit_color(Color::GRAY)),
             ..Default::default()
         });
