@@ -1,6 +1,9 @@
 use std::f32::consts::{FRAC_PI_4, PI};
 
-use bevy::input::{mouse::MouseButtonInput, ElementState};
+use bevy::{
+    input::{mouse::MouseButtonInput, ElementState},
+    utils::HashMap,
+};
 use bitworks::*;
 
 use bevy_egui::{egui, EguiContext, EguiPlugin};
@@ -16,7 +19,7 @@ fn main() {
         .add_plugin(CameraPlugin)
         .add_plugin(VoxelPlugin)
         .add_plugin(EguiPlugin)
-        //.add_plugin(DebugEventsPickingPlugin)
+        .add_plugin(DebugEventsPickingPlugin)
         //.add_plugin(DebugCursorPickingPlugin)
         //.add_plugin(DefaultRaycastingPlugin::<MyRaycastSet>::default())
         .add_plugin(RaycastPlugin)
@@ -31,6 +34,7 @@ impl Plugin for Setup {
         app //
             .insert_resource(Tool::Spring)
             .insert_resource(Models::default())
+            .insert_resource(Field::default())
             .add_system(tool_ui.system())
             .add_system(build_on_click.system())
             .add_system_to_stage(CoreStage::PreUpdate, update_raycast_with_cursor.system())
@@ -52,8 +56,10 @@ fn build_on_click(
     tool: Res<Tool>,
     mut cmds: Commands,
     models: Res<Models>,
+    mut field: ResMut<Field>,
 ) {
     let cmds = &mut cmds;
+    let field = &mut field;
 
     for event in events.iter() {
         if let (MouseButton::Left, ElementState::Pressed) = (event.button, event.state) {
@@ -62,26 +68,69 @@ fn build_on_click(
                 let transform = Transform::from_translation(transform.translation);
 
                 match tool {
-                    Tool::Clear => {}
-                    Tool::Spring => build(cmds, transform, &models.building_spring),
-                    Tool::Glassblower => build(cmds, transform, &models.building_glassblower),
-                    Tool::Tap => build(cmds, transform, &models.building_tap),
-                    Tool::Trash => build(cmds, transform, &models.building_trash),
+                    Tool::Clear => field.clear_building(transform.translation),
+                    Tool::Spring => try_build(cmds, transform, &models.building_spring, field),
+                    Tool::Glassblower => {
+                        try_build(cmds, transform, &models.building_glassblower, field)
+                    }
+                    Tool::Tap => try_build(cmds, transform, &models.building_tap, field),
+                    Tool::Trash => try_build(cmds, transform, &models.building_trash, field),
                 }
             }
         }
     }
 
-    fn build(cmds: &mut Commands, transform: Transform, model: &Model) {
-        cmds.spawn_bundle((
-            transform,
-            GlobalTransform::identity(),
-            BuildAnimation::default(),
-        ))
-        .with_children(|parent| {
-            parent.spawn_bundle(model.bundle());
-        });
+    fn try_build(cmds: &mut Commands, transform: Transform, model: &Model, field: &mut Field) {
+        if field.has_building(transform.translation) {
+            return;
+        }
+
+        let entity = cmds
+            .spawn_bundle((
+                transform,
+                GlobalTransform::identity(),
+                BuildAnimation::default(),
+            ))
+            .with_children(|parent| {
+                parent
+                    .spawn_bundle(model.bundle())
+                    .insert_bundle(PickableBundle::default());
+            })
+            .id();
+
+        field.set_building(transform.translation, entity);
     }
+}
+
+//
+
+#[derive(Default)]
+struct Field {
+    cells: HashMap<IVec3, FieldCell>,
+}
+
+impl Field {
+    fn clear_building(&mut self, at: Vec3) {
+        self.cells
+            .entry(at.as_i32())
+            .and_modify(|cell| cell.building = None);
+    }
+
+    fn set_building(&mut self, at: Vec3, entity: Entity) {
+        self.cells.entry(at.as_i32()).or_default().building = Some(entity);
+    }
+
+    fn has_building(&self, at: Vec3) -> bool {
+        self.cells
+            .get(&at.as_i32())
+            .and_then(|cell| cell.building)
+            .is_some()
+    }
+}
+
+#[derive(Default)]
+struct FieldCell {
+    building: Option<Entity>,
 }
 
 //
@@ -143,6 +192,8 @@ pub struct Models {
     building_tap: Model,
     building_glassblower: Model,
     building_trash: Model,
+    build_ghost_buildable: Handle<StandardMaterial>,
+    build_ghost_not_buildable: Handle<StandardMaterial>,
 }
 
 fn setup_assets(
@@ -151,6 +202,8 @@ fn setup_assets(
     mut models: ResMut<Models>,
 ) {
     let black = materials.set("black", StandardMaterial::unlit_color(Color::BLACK));
+    let green = materials.set("green", StandardMaterial::unlit_color(Color::LIME_GREEN));
+    let red = materials.set("red", StandardMaterial::unlit_color(Color::ORANGE_RED));
 
     models.building_spring = Model {
         transform: Transform::from_translation(vec3(0.0, 0.3, 0.0)),
@@ -187,6 +240,9 @@ fn setup_assets(
             .into(),
         ),
     };
+
+    models.build_ghost_buildable = green;
+    models.build_ghost_not_buildable = red;
 }
 
 //
@@ -195,9 +251,21 @@ struct BuildGhost;
 fn update_build_ghost(
     res_tool: Res<Tool>,
     models: Res<Models>,
-    mut ghost_query: Query<(&mut Tool, &mut Handle<Mesh>, &mut Visible), With<BuildGhost>>,
+    field: Res<Field>,
+    mut ghost_query: Query<
+        (
+            &mut Tool,
+            &mut Handle<Mesh>,
+            &mut Visible,
+            &mut Handle<StandardMaterial>,
+            &GlobalTransform,
+        ),
+        With<BuildGhost>,
+    >,
 ) {
-    if let Ok((mut ghost_tool, mut handle_mesh, mut visible)) = ghost_query.single_mut() {
+    if let Ok((mut ghost_tool, mut handle_mesh, mut visible, mut material, transform)) =
+        ghost_query.single_mut()
+    {
         let tool = *res_tool;
         if *ghost_tool != tool {
             *ghost_tool = tool;
@@ -217,6 +285,21 @@ fn update_build_ghost(
                 };
             }
         }
+
+        match tool {
+            Tool::Clear => {}
+            Tool::Spring | Tool::Glassblower | Tool::Tap | Tool::Trash => {
+                let new_material = if field.has_building(transform.translation) {
+                    &models.build_ghost_not_buildable
+                } else {
+                    &models.build_ghost_buildable
+                };
+
+                if &*material != new_material {
+                    *material = new_material.clone();
+                }
+            }
+        };
     }
 }
 
@@ -292,8 +375,7 @@ fn spawn_plane(
             material: materials.add(StandardMaterial::unlit_color(Color::DARK_GRAY)),
             ..Default::default()
         })
-        .insert(RayCastMesh::<MyRaycastSet>::default())
-        .insert_bundle(PickableBundle::default());
+        .insert(RayCastMesh::<MyRaycastSet>::default());
 }
 
 struct PlaneSelector;
