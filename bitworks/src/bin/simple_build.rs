@@ -127,7 +127,7 @@ fn update_random_walker(time: Res<Time>, mut walkers: Query<(&mut Transform, &mu
 
     for (mut transform, mut walker) in walkers.iter_mut() {
         walker.time += dt;
-        
+
         let p: Vec2 = vec2(transform.translation.x, transform.translation.z);
 
         if walker.speed == 0.0 {
